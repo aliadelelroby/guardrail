@@ -1,0 +1,32 @@
+# Source files (we publish dist only)
+src/
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+vitest.config.ts
+tsconfig.test.json
+coverage/
+
+# Development config
+.eslintrc.json
+.prettierrc
+.gitignore
+.github/
+
+# Build artifacts
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+www/
+docs/
+*.log
+.env*

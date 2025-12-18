@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardrail — Open Source Security for Modern Apps</title>
+    <meta
+      name="description"
+      content="Rate limiting, bot detection, and attack protection. Self-hosted security that runs on your infrastructure."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #fafbfc;
+        --bg-tertiary: #f3f4f6;
+        --bg-code: #18181b;
+        --border: #e5e7eb;
+        --border-light: #f0f1f3;
+        --text-primary: #111827;
+        --text-secondary: #4b5563;
+        --text-tertiary: #9ca3af;
+        --accent: #18181b;
+        --accent-hover: #27272a;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: "cv11", "ss01";
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        border: 0;
+        background: none;
+        cursor: pointer;
+      }
+
+      /* Navigation */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 40px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.5px;
+      }
+
+      .logo svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+      }
+
+      .nav-links a {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        transition: var(--transition);
+      }
+
+      .nav-links a:hover {
+        color: var(--text-primary);
+      }
+
+      .nav-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: var(--accent);
+        color: white;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        font-weight: 600;
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .nav-cta:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      /* Header */
+      header {
+        padding: 140px 40px 100px;
+        text-align: center;
+        background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+        position: relative;
+        overflow: hidden;
+      }
+
+      header::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 1400px;
+        height: 100%;
+        background: radial-gradient(
+          ellipse 80% 50% at 50% -20%,
+          rgba(100, 100, 100, 0.06),
+          transparent
+        );
+        pointer-events: none;
+      }
+
+      .header-label {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+        margin-bottom: 28px;
+      }
+
+      h1 {
+        font-size: 56px;
+        font-weight: 800;
+        letter-spacing: -2px;
+        margin-bottom: 20px;
+        line-height: 1.1;
+        background: linear-gradient(135deg, var(--text-primary) 0%, #374151 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .tagline {
+        font-size: 19px;
+        color: var(--text-secondary);
+        max-width: 560px;
+        margin: 0 auto 36px;
+        line-height: 1.6;
+        font-weight: 400;
+      }
+
+      .badges {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 18px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 100px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .badge:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .badge.highlight {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .badge.highlight:hover {
+        background: var(--accent-hover);
+      }
+
+      .badge svg {
+        width: 15px;
+        height: 15px;
+        opacity: 0.9;
+      }
+
+      /* Section common */
+      .section-title {
+        text-align: center;
+        font-size: 36px;
+        font-weight: 800;
+        margin-bottom: 14px;
+        letter-spacing: -1px;
+      }
+
+      .section-subtitle {
+        text-align: center;
+        color: var(--text-tertiary);
+        margin-bottom: 56px;
+        font-size: 16px;
+        font-weight: 400;
+      }
+
+      /* Code Demo */
+      .demo-section {
+        padding: 100px 40px;
+        background: var(--bg-primary);
+      }
+
+      .demo-container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .code-panel {
+        background: var(--bg-code);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-xl);
+      }
+
+      .code-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .code-header-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .code-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .code-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #3f3f46;
+      }
+
+      .code-filename {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: #71717a;
+      }
+
+      .code-copy {
+        font-size: 12px;
+        font-weight: 500;
+        color: #71717a;
+        padding: 6px 14px;
+        border-radius: var(--radius-sm);
+        transition: var(--transition);
+      }
+
+      .code-copy:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: #a1a1aa;
+      }
+
+      .code-content {
+        padding: 28px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.9;
+        color: #d4d4d8;
+        overflow-x: auto;
+      }
+
+      .k {
+        color: #c792ea;
+      }
+      .f {
+        color: #82aaff;
+      }
+      .s {
+        color: #c3e88d;
+      }
+      .n {
+        color: #f78c6c;
+      }
+      .p {
+        color: #ffcb6b;
+      }
+      .c {
+        color: #546e7a;
+      }
+
+      /* Features Section */
+      .features-section {
+        padding: 100px 40px;
+        background: var(--bg-secondary);
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+
+      .feature-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        transition: var(--transition);
+      }
+
+      .feature-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+        border-color: transparent;
+      }
+
+      /* Feature Rows with Code */
+      .feature-rows-section {
+        padding: 100px 40px;
+        background: var(--bg-primary);
+      }
+
+      .feature-rows-container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      .feature-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 80px;
+      }
+
+      .feature-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+      }
+
+      .feature-row.reverse {
+        direction: rtl;
+      }
+
+      .feature-row.reverse > * {
+        direction: ltr;
+      }
+
+      .feature-row-info h3 {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-bottom: 16px;
+      }
+
+      .feature-row-info p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 20px;
+      }
+
+      .feature-row-info ul {
+        list-style: none;
+      }
+
+      .feature-row-info li {
+        position: relative;
+        padding-left: 20px;
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+
+      .feature-row-info li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 6px;
+        height: 6px;
+        background: var(--text-tertiary);
+        border-radius: 50%;
+      }
+
+      .feature-row-code {
+        background: var(--bg-code);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-xl);
+      }
+
+      .feature-row-code-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 18px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .feature-row-code pre {
+        padding: 24px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.8;
+        color: #d4d4d8;
+        overflow-x: auto;
+      }
+
+      @media (max-width: 900px) {
+        .feature-row,
+        .feature-row.reverse {
+          grid-template-columns: 1fr;
+          direction: ltr;
+          gap: 32px;
+        }
+        .feature-rows {
+          gap: 56px;
+        }
+      }
+
+      .feature-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        border: 1px solid var(--border-light);
+      }
+
+      .feature-icon svg {
+        width: 22px;
+        height: 22px;
+        color: var(--text-secondary);
+      }
+
+      .feature-title {
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+
+      .feature-desc {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+
+      /* Comparison Section */
+      .comparison-section {
+        padding: 100px 40px;
+        background: var(--bg-primary);
+      }
+
+      .comparison-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .comparison-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 18px 24px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .comparison-table th {
+        background: var(--bg-secondary);
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-tertiary);
+      }
+
+      .comparison-table th:last-child {
+        color: var(--text-primary);
+      }
+
+      .comparison-table td {
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .comparison-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .comparison-table tbody tr {
+        transition: var(--transition);
+      }
+
+      .comparison-table tbody tr:hover td {
+        background: var(--bg-secondary);
+      }
+
+      .comparison-table td:first-child {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .comparison-table td:nth-child(2) {
+        color: var(--text-tertiary);
+      }
+      .comparison-table td:last-child {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .check-badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+      }
+
+      .check-badge.positive {
+        background: #ecfdf5;
+        color: #047857;
+      }
+
+      /* Frameworks */
+      .frameworks-section {
+        padding: 100px 40px;
+        background: var(--bg-secondary);
+      }
+
+      .frameworks-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .framework-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 36px 28px;
+        text-align: center;
+        transition: var(--transition);
+      }
+
+      .framework-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+        border-color: transparent;
+      }
+
+      .framework-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 18px;
+        color: var(--text-secondary);
+      }
+
+      .framework-name {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .framework-desc {
+        font-size: 13px;
+        color: var(--text-tertiary);
+      }
+
+      /* CTA Section */
+      .cta-section {
+        padding: 100px 40px;
+        background: var(--bg-primary);
+      }
+
+      .cta-container {
+        max-width: 700px;
+        margin: 0 auto;
+        text-align: center;
+        background: var(--bg-code);
+        border-radius: var(--radius-xl);
+        padding: 72px 48px;
+        box-shadow: var(--shadow-xl);
+      }
+
+      .cta-container h2 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        color: white;
+        margin-bottom: 12px;
+      }
+
+      .cta-container p {
+        font-size: 16px;
+        color: #a1a1aa;
+        margin-bottom: 36px;
+      }
+
+      .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: white;
+        color: var(--bg-code);
+        border-radius: var(--radius-md);
+        font-size: 14px;
+        font-weight: 600;
+        transition: var(--transition);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .btn-primary svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        color: #a1a1aa;
+        border-radius: var(--radius-md);
+        font-size: 14px;
+        font-weight: 600;
+        transition: var(--transition);
+      }
+
+      .btn-ghost:hover {
+        color: white;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      /* Footer */
+      footer {
+        padding: 48px 40px;
+        text-align: center;
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border);
+        color: var(--text-tertiary);
+        font-size: 14px;
+      }
+
+      footer a {
+        color: var(--text-secondary);
+        font-weight: 500;
+        transition: var(--transition);
+      }
+
+      footer a:hover {
+        color: var(--text-primary);
+      }
+
+      /* Responsive */
+      @media (max-width: 900px) {
+        .features-grid,
+        .frameworks-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        header {
+          padding: 120px 24px 80px;
+        }
+        h1 {
+          font-size: 40px;
+        }
+        .nav-inner {
+          padding: 0 24px;
+        }
+        .nav-links {
+          display: none;
+        }
+        .demo-section,
+        .features-section,
+        .comparison-section,
+        .frameworks-section,
+        .cta-section {
+          padding: 80px 24px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .features-grid,
+        .frameworks-grid {
+          grid-template-columns: 1fr;
+        }
+        header {
+          padding: 100px 20px 60px;
+        }
+        h1 {
+          font-size: 32px;
+          letter-spacing: -1px;
+        }
+        .tagline {
+          font-size: 16px;
+        }
+        .section-title {
+          font-size: 28px;
+        }
+        .badges {
+          gap: 8px;
+        }
+        .badge {
+          padding: 8px 14px;
+          font-size: 12px;
+        }
+        .code-content {
+          padding: 20px;
+          font-size: 12px;
+        }
+        .cta-container {
+          padding: 48px 24px;
+        }
+        .cta-container h2 {
+          font-size: 26px;
+        }
+        .cta-buttons {
+          flex-direction: column;
+        }
+        footer {
+          padding: 32px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-inner">
+        <a href="/" class="logo">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path
+              d="M16 2L4 8V16C4 23.5 9.5 29.5 16 30C22.5 29.5 28 23.5 28 16V8L16 2Z"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 16L15 19L21 13"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Guardrail
+        </a>
+        <div class="nav-links">
+          <a href="docs.html">Documentation</a>
+          <a href="docs.html#api">API</a>
+          <a href="https://github.com/aliadelelroby/guardrail" target="_blank">GitHub</a>
+        </div>
+        <a href="docs.html#getting-started" class="nav-cta">Get Started</a>
+      </div>
+    </nav>
+
+    <header>
+      <div class="header-label">Open Source Security</div>
+      <h1>Protect Your Application</h1>
+      <p class="tagline">
+        Rate limiting, bot detection, and attack protection that runs entirely on your
+        infrastructure. No vendor lock-in.
+      </p>
+      <div class="badges">
+        <span class="badge highlight">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Self-Hosted
+        </span>
+        <span class="badge highlight">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          Real-time
+        </span>
+        <span class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+          TypeScript
+        </span>
+        <span class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M9 21V9" />
+          </svg>
+          MIT License
+        </span>
+      </div>
+    </header>
+
+    <section class="demo-section">
+      <div class="demo-container">
+        <h2 class="section-title">Simple API</h2>
+        <p class="section-subtitle">Add protection to any endpoint in minutes</p>
+        <div class="code-panel">
+          <div class="code-header">
+            <div class="code-header-left">
+              <div class="code-dots"><span></span><span></span><span></span></div>
+              <span class="code-filename">middleware.ts</span>
+            </div>
+            <button class="code-copy">Copy</button>
+          </div>
+          <pre
+            class="code-content"
+          ><span class="k">import</span> { guardrail } <span class="k">from</span> <span class="s">"@guardrail-dev/core"</span>
+<span class="k">import</span> { RateLimit, Shield } <span class="k">from</span> <span class="s">"@guardrail-dev/core/nestjs"</span>
+
+<span class="c">// 1. Zero-config initialization (defaults to API preset + Auto-Redis)</span>
+<span class="k">const</span> gr = <span class="f">guardrail</span>()
+
+<span class="c">// 2. Or use powerful decorators in NestJS</span>
+@<span class="f">Controller</span>(<span class="s">'api'</span>)
+<span class="k">class</span> <span class="f">ApiController</span> {
+  @<span class="f">Post</span>(<span class="s">'data'</span>)
+  @<span class="f">RateLimit</span>({ <span class="p">max</span>: <span class="n">5</span>, <span class="p">interval</span>: <span class="s">'1m'</span> })
+  @<span class="f">Shield</span>()
+  <span class="k">async</span> <span class="f">handle</span>(@<span class="f">Decision</span>() decision: Decision) {
+    <span class="k">return</span> { <span class="p">id</span>: decision.<span class="p">id</span> }
+  }
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-rows-section">
+      <div class="feature-rows-container">
+        <h2 class="section-title">Powerful Features</h2>
+        <p class="section-subtitle">Everything you need with code examples</p>
+
+        <div class="feature-rows">
+          <div class="feature-row">
+            <div class="feature-row-info">
+              <h3>Rate Limiting</h3>
+              <p>
+                Token bucket and sliding window algorithms. Limit by IP, user, or custom
+                identifiers. Perfect for API protection and AI quota control.
+              </p>
+              <ul>
+                <li>Sliding window for simple limits</li>
+                <li>Token bucket for burst handling</li>
+                <li>Per-user or per-IP tracking</li>
+              </ul>
+            </div>
+            <div class="feature-row-code">
+              <div class="feature-row-code-header">Rate Limiting</div>
+              <pre><span class="f">slidingWindow</span>({
+  <span class="p">interval</span>: <span class="s">"10m"</span>,
+  <span class="p">max</span>: <span class="n">100</span>,
+})
+
+<span class="f">tokenBucket</span>({
+  <span class="p">capacity</span>: <span class="n">5000</span>,
+  <span class="p">refillRate</span>: <span class="n">2000</span>,
+  <span class="p">interval</span>: <span class="s">"1h"</span>,
+})</pre>
+            </div>
+          </div>
+
+          <div class="feature-row reverse">
+            <div class="feature-row-info">
+              <h3>Bot Detection</h3>
+              <p>
+                Identify and block automated traffic while allowing legitimate crawlers. Over 50
+                known bots detected out of the box.
+              </p>
+              <ul>
+                <li>Allow specific crawlers</li>
+                <li>Block scraping attempts</li>
+                <li>Customizable detection</li>
+              </ul>
+            </div>
+            <div class="feature-row-code">
+              <div class="feature-row-code-header">Bot Detection</div>
+              <pre><span class="f">detectBot</span>({
+  <span class="p">allow</span>: [
+    <span class="s">"Googlebot"</span>,
+    <span class="s">"Bingbot"</span>,
+    <span class="s">"Slackbot"</span>,
+  ],
+})</pre>
+            </div>
+          </div>
+
+          <div class="feature-row">
+            <div class="feature-row-info">
+              <h3>Attack Protection</h3>
+              <p>
+                Shield against SQL injection, XSS, command injection, and path traversal. Pattern
+                matching with zero false positives.
+              </p>
+              <ul>
+                <li>SQL injection blocking</li>
+                <li>XSS prevention</li>
+                <li>Command injection detection</li>
+              </ul>
+            </div>
+            <div class="feature-row-code">
+              <div class="feature-row-code-header">Shield</div>
+              <pre><span class="c">// Full protection</span>
+<span class="f">shield</span>()
+
+<span class="c">// Or in dry-run mode</span>
+<span class="f">shield</span>({
+  <span class="p">mode</span>: <span class="s">"DRY_RUN"</span>
+})</pre>
+            </div>
+          </div>
+
+          <div class="feature-row reverse">
+            <div class="feature-row-info">
+              <h3>IP Intelligence</h3>
+              <p>
+                Geo-location and network detection built-in. Block or allow based on country, detect
+                VPN and proxy usage.
+              </p>
+              <ul>
+                <li>Country, region, city detection</li>
+                <li>VPN and proxy identification</li>
+                <li>Hosting provider detection</li>
+              </ul>
+            </div>
+            <div class="feature-row-code">
+              <div class="feature-row-code-header">Filter Rules</div>
+              <pre><span class="f">filter</span>({
+  <span class="p">deny</span>: [
+    <span class="s">'ip.src.country ne "US"'</span>,
+    <span class="s">"ip.src.vpn == true"</span>,
+    <span class="s">"ip.src.hosting == true"</span>,
+  ],
+})</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <h2 class="section-title">Everything You Need</h2>
+      <p class="section-subtitle">Complete security toolkit with zero external dependencies</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+          </div>
+          <div class="feature-title">Rate Limiting</div>
+          <p class="feature-desc">
+            Token bucket and sliding window algorithms. Limit by IP, user, or custom identifiers.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <circle cx="12" cy="16" r="1" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <div class="feature-title">Bot Detection</div>
+          <p class="feature-desc">
+            Identify and block automated traffic while allowing legitimate crawlers.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path
+                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+              />
+            </svg>
+          </div>
+          <div class="feature-title">IP Intelligence</div>
+          <p class="feature-desc">
+            Country, region, city detection with VPN and proxy identification.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path
+                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+              />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          </div>
+          <div class="feature-title">Email Validation</div>
+          <p class="feature-desc">
+            Block disposable, free, and invalid email addresses automatically.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <div class="feature-title">Attack Protection</div>
+          <p class="feature-desc">
+            Shield against SQL injection, XSS, and command injection attacks.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+          </div>
+          <div class="feature-title">Circuit Breaker</div>
+          <p class="feature-desc">Resilient storage operations with automatic failure recovery.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="comparison-section">
+      <div class="comparison-container">
+        <h2 class="section-title">Open Source Advantage</h2>
+        <p class="section-subtitle">Complete control over your security layer</p>
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Proprietary</th>
+              <th>Guardrail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Source Code</td>
+              <td><span class="check-badge">Closed</span></td>
+              <td><span class="check-badge positive">MIT Licensed</span></td>
+            </tr>
+            <tr>
+              <td>Hosting</td>
+              <td><span class="check-badge">Cloud Only</span></td>
+              <td><span class="check-badge positive">Self-Hosted</span></td>
+            </tr>
+            <tr>
+              <td>Pricing</td>
+              <td><span class="check-badge">Usage-Based</span></td>
+              <td><span class="check-badge positive">Free Forever</span></td>
+            </tr>
+            <tr>
+              <td>Data Privacy</td>
+              <td>Third-Party Servers</td>
+              <td>Your Infrastructure</td>
+            </tr>
+            <tr>
+              <td>Framework Support</td>
+              <td>Next.js Only</td>
+              <td>Next.js, Express, Nest.js, Fastify, Koa</td>
+            </tr>
+            <tr>
+              <td>Custom Rules</td>
+              <td>Limited</td>
+              <td>Full Plugin System</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="frameworks-section">
+      <h2 class="section-title">Works With Your Stack</h2>
+      <p class="section-subtitle">First-class support for popular Node.js frameworks</p>
+      <div class="frameworks-grid">
+        <a href="docs.html#nextjs" class="framework-card">
+          <svg class="framework-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M11.572 0c-.176 0-.31.001-.358.007a19.76 19.76 0 0 1-.364.033C7.443.346 4.25 2.185 2.228 5.012a11.875 11.875 0 0 0-2.119 5.243c-.096.659-.108.854-.108 1.747s.012 1.089.108 1.748c.652 4.506 3.86 8.292 8.209 9.695.779.251 1.6.422 2.534.525.363.04 1.935.04 2.299 0 1.611-.178 2.977-.577 4.323-1.264.207-.106.247-.134.219-.158-.02-.013-.9-1.193-1.955-2.62l-1.919-2.592-2.404-3.558a338.739 338.739 0 0 0-2.422-3.556c-.009-.002-.018 1.579-.023 3.51-.007 3.38-.01 3.515-.052 3.595a.426.426 0 0 1-.206.214c-.075.037-.14.044-.495.044H7.81l-.108-.068a.438.438 0 0 1-.157-.171l-.05-.106.006-4.703.007-4.705.072-.092a.645.645 0 0 1 .174-.143c.096-.047.134-.051.54-.051.478 0 .558.018.682.154.035.038 1.337 1.999 2.895 4.361a10760.433 10760.433 0 0 0 4.735 7.17l1.9 2.879.096-.063a12.317 12.317 0 0 0 2.466-2.163 11.944 11.944 0 0 0 2.824-6.134c.096-.66.108-.854.108-1.748 0-.893-.012-1.088-.108-1.747-.652-4.506-3.859-8.292-8.208-9.695a12.597 12.597 0 0 0-2.499-.523A33.119 33.119 0 0 0 11.572 0zm4.069 7.217c.347 0 .408.005.486.047a.473.473 0 0 1 .237.277c.018.06.023 1.365.018 4.304l-.006 4.218-.744-1.14-.746-1.14v-3.066c0-1.982.01-3.097.023-3.15a.478.478 0 0 1 .233-.296c.096-.05.13-.054.5-.054z"
+            />
+          </svg>
+          <div class="framework-name">Next.js</div>
+          <div class="framework-desc">App Router & Pages</div>
+        </a>
+        <a href="docs.html#express" class="framework-card">
+          <svg class="framework-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M24 18.588a1.529 1.529 0 0 1-1.895-.72l-3.45-4.771-.5-.667-4.003 5.444a1.466 1.466 0 0 1-1.802.708l5.158-6.92-4.798-6.251a1.595 1.595 0 0 1 1.9.666l3.576 4.83 3.596-4.81a1.435 1.435 0 0 1 1.788-.668L21.708 7.9l-2.522 3.283a.666.666 0 0 0 0 .994l4.804 6.412zM.002 11.576l.42-2.075c1.154-4.103 5.858-5.81 9.094-3.27 1.895 1.489 2.368 3.597 2.275 5.973H1.116C.943 16.447 4.005 19.009 7.92 17.7a4.078 4.078 0 0 0 2.582-2.876c.207-.666.548-.78 1.174-.588a5.417 5.417 0 0 1-2.589 3.957 6.272 6.272 0 0 1-7.306-.933 6.575 6.575 0 0 1-1.64-3.858c0-.235-.08-.455-.134-.666A88.33 88.33 0 0 1 0 11.577zm1.127-.286h9.654c-.06-3.076-2.001-5.258-4.59-5.278-2.882-.04-4.944 2.094-5.071 5.264z"
+            />
+          </svg>
+          <div class="framework-name">Express</div>
+          <div class="framework-desc">Middleware</div>
+        </a>
+        <a href="docs.html#nestjs" class="framework-card">
+          <svg class="framework-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M14.131.047c-.173 0-.334.037-.483.087.316.21.49.49.576.806.007.043.019.074.025.117a.681.681 0 0 1 .013.112c.024.545-.143.614-.26.936-.18.415-.13.861.086 1.22a.74.74 0 0 0 .074.137c-.235-1.568 1.073-1.803 1.314-2.293.019-.428-.334-.726-.629-.899a1.298 1.298 0 0 0-.716-.223zM16.102.4c-.024.143-.006.106-.012.18-.006.05-.006.112-.012.161a1.451 1.451 0 0 1-.094.298l-.067.142c-.025.05-.056.093-.08.143l-.1.124-.105.112-.117.106-.124.093-.13.087a1.063 1.063 0 0 1-.144.074c-.05.031-.093.05-.143.069a1.63 1.63 0 0 1-.155.043c-.143.031-.298.044-.422.037a.767.767 0 0 1-.136-.018c-.168-.018-.273-.03-.093 0 .032.006.063.018.087.031l.087.037.081.043c.025.019.056.037.08.056l.08.068.075.074.068.08c.019.031.044.056.062.087l.056.087.043.08c.019.031.025.056.037.087l.031.087.025.08c0 .025.006.056.006.087v.025c.006.025 0 .05.006.08v.093l-.006.093-.013.087c-.006.025-.006.056-.012.08l-.019.075-.025.075-.025.074-.037.075-.044.074-.043.068-.056.075-.05.068-.069.069-.062.062-.075.057-.074.05-.082.05-.08.043-.087.037-.087.037-.094.031-.087.019-.1.025-.093.012-.093.006h-.699c-.093-.006-.18-.012-.273-.012a2.618 2.618 0 0 0-.528.068c-.087.019-.168.044-.261.069a3.007 3.007 0 0 0-.502.217c-.08.044-.155.086-.235.137l-.217.155a2.205 2.205 0 0 0-.205.168c-.062.056-.118.118-.173.18a2.342 2.342 0 0 0-.29.372c-.044.068-.08.137-.118.205a2.07 2.07 0 0 0-.1.211c-.03.075-.056.149-.08.223a2.11 2.11 0 0 0-.087.456c-.006.05-.006.093-.006.142l.006.142c.006.093.012.18.031.273.012.074.03.155.05.229a2.19 2.19 0 0 0 .136.366c.044.093.093.18.15.266.05.075.093.143.149.21a1.97 1.97 0 0 0 .385.398c.075.062.143.118.217.168l.235.143.18.087c-.018-.237-.018-.391.068-.54.093-.161.229-.273.379-.329-.044.31.043.397.18.453.13.056.286.037.41-.025-.093.18-.155.367-.143.56a.648.648 0 0 0 .168.404c.093.093.205.155.316.193a.694.694 0 0 0 .38.012c.13-.037.236-.118.299-.217-.087.093-.186.037-.279-.025a.323.323 0 0 1-.13-.18c-.025-.074-.019-.155.018-.223.037-.069.1-.118.174-.15a.5.5 0 0 1 .304-.006c.05.019.1.044.142.075a.477.477 0 0 1 .192.261c.025.055.037.117.044.173v.18a.694.694 0 0 1-.137.341.746.746 0 0 1-.268.255.807.807 0 0 1-.366.105c-.069.006-.137 0-.205-.006a.973.973 0 0 1-.198-.044c-.13-.037-.255-.093-.372-.155a1.855 1.855 0 0 1-.627-.498 2.12 2.12 0 0 1-.385-.71 2.508 2.508 0 0 1-.025-.405c.006-.13.019-.26.044-.391a2.386 2.386 0 0 1 .304-.788 2.58 2.58 0 0 1 .546-.713 2.67 2.67 0 0 1 .758-.516 3.153 3.153 0 0 1 .907-.205c.155-.007.317.005.472.024l.118.025a3.56 3.56 0 0 1 1.116.087c.18.012.354.043.528.093.174.044.341.106.497.18 0-.025 0-.05-.006-.074l-.012-.08-.025-.056-.025-.043c-.006-.019-.018-.031-.024-.05l-.012-.024a.076.076 0 0 0-.019-.019l-.012-.018a.586.586 0 0 0-.155-.137l-.087-.074-.08-.063-.093-.068-.087-.056-.105-.056a1.005 1.005 0 0 0-.205-.074l-.118-.031-.044-.006-.105-.031-.136-.019a1.018 1.018 0 0 0-.291-.025c-.05 0-.093.006-.143 0l-.148.012-.143.025-.136.031-.13.044-.13.05-.13.056c-.037.019-.08.044-.118.062l-.118.069a.967.967 0 0 1-.112.074l-.13.093-.099.087-.13.112-.192.192a3.97 3.97 0 0 0-.441.639c-.062.112-.118.229-.168.347a2.716 2.716 0 0 0-.186.747c.244-.105.483-.174.729-.205a1.86 1.86 0 0 1 .784.006c.068-.006.124.087.13.13-.249.006-.472.07-.67.168a1.422 1.422 0 0 0-.85.975 1.92 1.92 0 0 0-.118.627c0 .074.006.149.019.217.012.074.03.143.056.211a.912.912 0 0 0 .211.365c.043.05.093.1.148.143a.786.786 0 0 0 .348.187.774.774 0 0 0 .385.024.94.94 0 0 0 .591-.211c-.118.273-.186.565-.186.87a1.49 1.49 0 0 0 .329 1.093c.162.106.347.18.54.224a1.732 1.732 0 0 0 1.166-.143c.18-.093.341-.218.478-.366.137-.149.248-.316.329-.502.08-.187.13-.385.137-.59a1.456 1.456 0 0 0-.346-1.092c.037 0 .074 0 .111.006l.112.012.106.019.093.025c.037.013.074.025.105.037l.112.056.106.062.093.069c.03.025.056.05.086.074l.075.08.068.087.056.087.05.093c.013.03.025.068.038.1l.025.1c.006.037.012.075.012.117.006.038.006.08.006.118l-.006.118a.703.703 0 0 1-.062.236.699.699 0 0 1-.149.224.776.776 0 0 1-.174.15.807.807 0 0 1-.373.125c.056.068.1.142.137.223a.877.877 0 0 1 .044.515 1.001 1.001 0 0 1-.36.596.991.991 0 0 1-.502.155 1.13 1.13 0 0 1-.52-.063l-.05-.019a1.77 1.77 0 0 0 .49.497c.105.068.217.124.341.162a1.407 1.407 0 0 0 1.101-.099c.117-.068.223-.155.316-.26a1.204 1.204 0 0 0 .291-.781 1.477 1.477 0 0 0-.211-.826 1.58 1.58 0 0 0-.273-.341 1.713 1.713 0 0 0 1.061-.348c.115-.093.217-.2.3-.32.085-.119.151-.25.198-.385a1.493 1.493 0 0 0-.249-1.353 1.57 1.57 0 0 0-.428-.26c.068.018.142.03.21.037a.942.942 0 0 0 .423-.093.73.73 0 0 0 .224-.13c.03-.025.062-.05.086-.08l.075-.088.056-.093c.018-.031.031-.062.043-.093a.636.636 0 0 0 .05-.186c.006-.031.006-.062.006-.093l-.006-.093a.584.584 0 0 0-.044-.179l-.03-.087-.044-.08a.52.52 0 0 0-.112-.149.478.478 0 0 0-.137-.131c-.038-.019-.075-.044-.119-.057-.03-.019-.062-.037-.093-.044a.656.656 0 0 0-.205-.05 1.049 1.049 0 0 0-.41.031c-.07.025-.137.056-.2.093a.882.882 0 0 0-.298.323c.206-.018.41-.018.609-.005.2.012.392.037.584.08.192.044.378.1.553.174.174.074.34.162.496.261a2.371 2.371 0 0 1 .769.725c.1.143.192.291.267.447.075.155.136.316.18.478a2.23 2.23 0 0 1-.106 1.427 2.269 2.269 0 0 1-.566.813 2.138 2.138 0 0 1-.807.523c.13.167.224.36.274.565.05.205.056.416.019.621a1.59 1.59 0 0 1-.633 1.042 1.656 1.656 0 0 1-.546.285 1.687 1.687 0 0 1-1.218-.05 1.664 1.664 0 0 1-.905-.805c-.1-.18-.162-.378-.193-.584a1.756 1.756 0 0 1 .274-1.161c.107-.168.238-.316.396-.453.16-.13.335-.23.534-.292a1.93 1.93 0 0 1-.535-.521 1.664 1.664 0 0 1-.255-.681 1.503 1.503 0 0 1 .075-.707 1.4 1.4 0 0 1 .385-.621.84.84 0 0 1 .112-.1l.124-.08.137-.08.143-.068a1.185 1.185 0 0 1 .297-.1c.051-.012.1-.025.156-.03z"
+            />
+          </svg>
+          <div class="framework-name">Nest.js</div>
+          <div class="framework-desc">Guards & Interceptors</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-container">
+        <h2>Start Protecting Your App</h2>
+        <p>Add security to your application in minutes. No account required.</p>
+        <div class="cta-buttons">
+          <a href="docs.html#getting-started" class="btn-primary">
+            Read Documentation
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a href="https://github.com/aliadelelroby/guardrail" class="btn-ghost" target="_blank"
+            >View on GitHub</a
+          >
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        MIT License · Built by
+        <a href="https://github.com/aliadelelroby" target="_blank">Ali Adel Elroby</a>
+      </p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

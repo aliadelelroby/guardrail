@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentation — Guardrail</title>
+    <meta
+      name="description"
+      content="Complete documentation for Guardrail, the open-source security and rate limiting toolkit."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="nav">
+      <div class="nav-container nav-container-fluid">
+        <a href="/" class="nav-logo">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 32 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M16 2L4 8V16C4 23.5 9.5 29.5 16 30C22.5 29.5 28 23.5 28 16V8L16 2Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 16L15 19L21 13"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>Guardrail</span>
+        </a>
+        <div class="nav-links">
+          <a href="docs.html" class="nav-link">Docs</a>
+          <a href="#api" class="nav-link">API</a>
+          <a href="#examples" class="nav-link">Examples</a>
+          <a
+            href="https://github.com/aliadelelroby/guardrail"
+            class="nav-link nav-link-github"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+              />
+            </svg>
+            GitHub
+          </a>
+        </div>
+        <button class="nav-toggle" aria-label="Toggle navigation">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="docs-layout">
+      <!-- Sidebar -->
+      <aside class="docs-sidebar">
+        <nav>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Getting Started</div>
+            <a href="#getting-started" class="docs-nav-link active">Introduction</a>
+            <a href="#installation" class="docs-nav-link">Installation</a>
+            <a href="#quick-start" class="docs-nav-link">Quick Start</a>
+            <a href="#presets" class="docs-nav-link">Presets</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Frameworks</div>
+            <a href="#nextjs" class="docs-nav-link">Next.js</a>
+            <a href="#express" class="docs-nav-link">Express.js</a>
+            <a href="#nestjs" class="docs-nav-link">Nest.js</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Rules</div>
+            <a href="#rules" class="docs-nav-link">Overview</a>
+            <a href="#rate-limiting" class="docs-nav-link">Rate Limiting</a>
+            <a href="#bot-detection" class="docs-nav-link">Bot Detection</a>
+            <a href="#shield" class="docs-nav-link">Shield</a>
+            <a href="#email-validation" class="docs-nav-link">Email Validation</a>
+            <a href="#filter" class="docs-nav-link">Filter Rules</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Features</div>
+            <a href="#ip-intelligence" class="docs-nav-link">IP Intelligence</a>
+            <a href="#storage" class="docs-nav-link">Storage Backends</a>
+            <a href="#configuration" class="docs-nav-link">Configuration</a>
+            <a href="#metrics" class="docs-nav-link">Metrics & Events</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Reference</div>
+            <a href="#api" class="docs-nav-link">API Reference</a>
+            <a href="#examples" class="docs-nav-link">Examples</a>
+            <a href="#testing" class="docs-nav-link">Testing</a>
+            <a href="#limitations" class="docs-nav-link">Limitations</a>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="docs-content">
+        <header class="docs-header">
+          <h1 class="docs-title">Documentation</h1>
+          <p class="docs-description">
+            Learn how to protect your application with Guardrail's security and rate limiting
+            toolkit.
+          </p>
+        </header>
+
+        <!-- Getting Started -->
+        <section id="getting-started" class="docs-section">
+          <h2>Introduction</h2>
+          <p>
+            Guardrail is an open-source security toolkit that provides rate limiting, bot detection,
+            and attack protection for Node.js applications. It runs entirely on your infrastructure
+            with no external dependencies or usage-based pricing.
+          </p>
+
+          <h3>Key Features</h3>
+          <ul>
+            <li>
+              <strong>Zero-Config</strong> — Get started with built-in presets and auto-discovery
+            </li>
+            <li><strong>Rate Limiting</strong> — Token bucket and sliding window algorithms</li>
+            <li><strong>Bot Detection</strong> — Identify and block automated traffic</li>
+            <li><strong>IP Intelligence</strong> — Geolocation with VPN/proxy detection</li>
+            <li><strong>Email Validation</strong> — Block disposable and invalid emails</li>
+            <li>
+              <strong>Attack Protection</strong> — Shield against SQL injection, XSS, and more
+            </li>
+            <li>
+              <strong>Framework Support</strong> — Next.js, Express, Nest.js, Fastify, and Koa
+            </li>
+          </ul>
+        </section>
+
+        <!-- Installation -->
+        <section id="installation" class="docs-section">
+          <h2>Installation</h2>
+          <p>Install Guardrail using npm or your preferred package manager:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">bash</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code>npm install @guardrail-dev/core</code></pre>
+          </div>
+
+          <p>For Redis storage support in distributed deployments:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">bash</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code>npm install @guardrail-dev/core ioredis</code></pre>
+          </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section id="quick-start" class="docs-section">
+          <h2>Quick Start</h2>
+          <p>
+            Guardrail is designed to be developer-first. You can start protecting your app with zero
+            configuration:
+          </p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+          
+<span class="cmt">// 1. Zero-config (uses API preset + auto-detects Redis)</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>();
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Forbidden"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"OK"</span>);
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Next.js -->
+        <section id="nextjs" class="docs-section">
+          <h2>Next.js Integration</h2>
+          <p>Seamlessly protect your Next.js middleware and API routes.</p>
+
+          <h3>Middleware</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrailNext } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="cmt">// One-liner middleware protection</span>
+<span class="kw">export const</span> middleware = <span class="fn">guardrailNext</span>.<span class="fn">api</span>().<span class="fn">middleware</span>();</code></pre>
+          </div>
+
+          <h3>API Routes (App or Pages Router)</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { withGuardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="kw">export default</span> <span class="fn">withGuardrail</span>(<span class="kw">async</span> (req, res) => {
+  <span class="cmt">// Secured automatically</span>
+  res.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+});</code></pre>
+          </div>
+        </section>
+
+        <!-- Express.js -->
+        <section id="express" class="docs-section">
+          <h2>Express.js Integration</h2>
+          <p>Simple middleware factories with semantic presets.</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> express <span class="kw">from</span> <span class="str">"express"</span>;
+<span class="kw">import</span> { guardrailExpress } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/express"</span>;
+
+<span class="kw">const</span> app = <span class="fn">express</span>();
+
+<span class="cmt">// Global protection</span>
+app.<span class="fn">use</span>(<span class="fn">guardrailExpress</span>.<span class="fn">api</span>());
+
+<span class="cmt">// Route-specific with custom rules</span>
+app.<span class="fn">post</span>(<span class="str">"/login"</span>, <span class="fn">guardrailExpress</span>.<span class="fn">auth</span>({ <span class="prop">debug</span>: <span class="kw">true</span> }));</code></pre>
+          </div>
+        </section>
+
+        <!-- Fastify & Koa -->
+        <section id="other-frameworks" class="docs-section">
+          <h2>Fastify & Koa</h2>
+          <p>Consistent protection for every major framework.</p>
+
+          <h3>Fastify</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrailFastify } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/fastify"</span>;
+
+fastify.<span class="fn">addHook</span>(<span class="str">"preHandler"</span>, <span class="fn">guardrailFastify</span>.<span class="fn">api</span>());</code></pre>
+          </div>
+
+          <h3>Koa</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrailKoa } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/koa"</span>;
+
+app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class="fn">web</span>());</code></pre>
+          </div>
+        </section>
+
+        <!-- Nest.js -->
+        <section id="nestjs" class="docs-section">
+          <h2>Nest.js Integration</h2>
+          <p>
+            Register Guardrail as a module and use the ultimate decorator-driven security
+            experience.
+          </p>
+
+          <h3>Module Registration</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { Module } <span class="kw">from</span> <span class="str">"@nestjs/common"</span>;
+<span class="kw">import</span> { GuardrailModule } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Module</span>({
+  <span class="prop">imports</span>: [
+    GuardrailModule.<span class="fn">forRoot</span>({
+      <span class="prop">autoProtect</span>: <span class="kw">true</span>, <span class="cmt">// Automatically protect every route</span>
+      <span class="prop">useGuard</span>: <span class="kw">true</span>,
+    }),
+  ],
+})
+<span class="kw">export class</span> <span class="fn">AppModule</span> {}</code></pre>
+          </div>
+
+          <h3>Ultimate Decorators</h3>
+          <p>Add protection to specific controllers or routes with single-line decorators:</p>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { Controller, Post } <span class="kw">from</span> <span class="str">"@nestjs/common"</span>;
+<span class="kw">import</span> { RateLimit, Shield, GuardrailVPNBlock, Decision } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Controller</span>(<span class="str">"payments"</span>)
+@<span class="fn">Shield</span>() <span class="cmt">// Protect all routes in this controller</span>
+<span class="kw">export class</span> <span class="fn">PaymentsController</span> {
+  @<span class="fn">Post</span>()
+  @<span class="fn">RateLimit</span>({ <span class="prop">max</span>: <span class="num">5</span>, <span class="prop">interval</span>: <span class="str">"1m"</span> }) <span class="cmt">// Override rate limit</span>
+  @<span class="fn">GuardrailVPNBlock</span>() <span class="cmt">// Shortcut for VPN blocking</span>
+  <span class="kw">async</span> <span class="fn">process</span>(@<span class="fn">Decision</span>() decision: Decision) {
+    <span class="kw">return</span> { <span class="prop">id</span>: decision.id };
+  }
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Rules Overview -->
+        <section id="rules" class="docs-section">
+          <h2>Rules Overview</h2>
+          <p>
+            Guardrail uses a rule-based system to evaluate requests. Rules are evaluated in order,
+            and each rule returns an ALLOW or DENY decision.
+          </p>
+
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Rule</th>
+                <th>Description</th>
+                <th>Import</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>shield</code></td>
+                <td>Attack protection (SQL injection, XSS, etc.)</td>
+                <td><code>shield()</code></td>
+              </tr>
+              <tr>
+                <td><code>detectBot</code></td>
+                <td>Bot detection and blocking</td>
+                <td><code>detectBot({ allow: [] })</code></td>
+              </tr>
+              <tr>
+                <td><code>slidingWindow</code></td>
+                <td>Rate limiting with sliding window</td>
+                <td><code>slidingWindow({ interval, max })</code></td>
+              </tr>
+              <tr>
+                <td><code>tokenBucket</code></td>
+                <td>Rate limiting with token bucket</td>
+                <td><code>tokenBucket({ capacity, refillRate })</code></td>
+              </tr>
+              <tr>
+                <td><code>validateEmail</code></td>
+                <td>Email validation and blocking</td>
+                <td><code>validateEmail({ block: [...] })</code></td>
+              </tr>
+              <tr>
+                <td><code>filter</code></td>
+                <td>Expression-based filtering</td>
+                <td><code>filter({ deny: [...] })</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Rate Limiting -->
+        <section id="rate-limiting" class="docs-section">
+          <h2>Rate Limiting</h2>
+
+          <h3>Sliding Window</h3>
+          <p>Limit the number of requests within a time window:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { slidingWindow } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="fn">slidingWindow</span>({
+  <span class="prop">interval</span>: <span class="str">"10m"</span>,  <span class="cmt">// Time window</span>
+  <span class="prop">max</span>: <span class="num">100</span>,          <span class="cmt">// Maximum requests</span>
+});</code></pre>
+          </div>
+
+          <h3>Token Bucket</h3>
+          <p>For more complex rate limiting, especially useful for AI quota control:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { tokenBucket } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="fn">tokenBucket</span>({
+  <span class="prop">characteristics</span>: [<span class="str">"userId"</span>],  <span class="cmt">// Rate limit per user</span>
+  <span class="prop">refillRate</span>: <span class="num">2000</span>,             <span class="cmt">// Tokens added per interval</span>
+  <span class="prop">interval</span>: <span class="str">"1h"</span>,               <span class="cmt">// Refill interval</span>
+  <span class="prop">capacity</span>: <span class="num">5000</span>,               <span class="cmt">// Maximum token capacity</span>
+});
+
+<span class="cmt">// Usage with token consumption</span>
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+  <span class="prop">userId</span>: <span class="str">"user123"</span>,
+  <span class="prop">requested</span>: estimatedTokens,
+});
+
+<span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+  <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+  console.<span class="fn">log</span>(<span class="str">`Tokens remaining: </span>${remaining}<span class="str">`</span>);
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Bot Detection -->
+        <section id="bot-detection" class="docs-section">
+          <h2>Bot Detection</h2>
+          <p>Detect and block automated traffic while allowing specific bots:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { detectBot } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Block all bots</span>
+<span class="fn">detectBot</span>({ <span class="prop">allow</span>: [] });
+
+<span class="cmt">// Allow specific bots</span>
+<span class="fn">detectBot</span>({
+  <span class="prop">allow</span>: [<span class="str">"Googlebot"</span>, <span class="str">"Bingbot"</span>, <span class="str">"Slackbot"</span>],
+});</code></pre>
+          </div>
+        </section>
+
+        <!-- Shield -->
+        <section id="shield" class="docs-section">
+          <h2>Shield (Attack Protection)</h2>
+          <p>Protect against common web attacks:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { shield } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Default protection</span>
+<span class="fn">shield</span>();
+
+<span class="cmt">// Dry run mode (log but don't block)</span>
+<span class="fn">shield</span>({ <span class="prop">mode</span>: <span class="str">"DRY_RUN"</span> });</code></pre>
+          </div>
+
+          <p>Shield protects against:</p>
+          <ul>
+            <li>SQL injection attacks</li>
+            <li>Cross-site scripting (XSS)</li>
+            <li>Command injection</li>
+            <li>Path traversal</li>
+          </ul>
+        </section>
+
+        <!-- Email Validation -->
+        <section id="email-validation" class="docs-section">
+          <h2>Email Validation</h2>
+          <p>Block problematic email addresses:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { validateEmail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="fn">validateEmail</span>({
+  <span class="prop">block</span>: [
+    <span class="str">"DISPOSABLE"</span>,    <span class="cmt">// Temporary email services</span>
+    <span class="str">"INVALID"</span>,       <span class="cmt">// Invalid format</span>
+    <span class="str">"NO_MX_RECORDS"</span>, <span class="cmt">// No mail server</span>
+    <span class="str">"FREE"</span>,          <span class="cmt">// Free email providers</span>
+  ],
+});
+
+<span class="cmt">// Usage</span>
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+  <span class="prop">email</span>: <span class="str">"user@example.com"</span>,
+});</code></pre>
+          </div>
+        </section>
+
+        <!-- Filter Rules -->
+        <section id="filter" class="docs-section">
+          <h2>Filter Rules</h2>
+          <p>Create custom filters using expressions:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { filter } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Block non-US traffic</span>
+<span class="fn">filter</span>({
+  <span class="prop">deny</span>: [<span class="str">'ip.src.country ne "US"'</span>],
+});
+
+<span class="cmt">// Allow only specific IPs</span>
+<span class="fn">filter</span>({
+  <span class="prop">allow</span>: [<span class="str">"ip.src in { 1.2.3.4 5.6.7.8 }"</span>],
+});
+
+<span class="cmt">// Complex expressions</span>
+<span class="fn">filter</span>({
+  <span class="prop">deny</span>: [
+    <span class="str">"ip.src.vpn == true"</span>,
+    <span class="str">'ip.src.country in ["XX", "YY"]'</span>,
+    <span class="str">'ip.src.country ne "US" and ip.src.proxy == true'</span>,
+  ],
+});</code></pre>
+          </div>
+
+          <h3>Supported Operators</h3>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Operator</th>
+                <th>Description</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>==</code>, <code>!=</code></td>
+                <td>Equality comparison</td>
+                <td><code>ip.src.vpn == true</code></td>
+              </tr>
+              <tr>
+                <td>
+                  <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>
+                </td>
+                <td>Numeric comparison</td>
+                <td><code>request.count > 100</code></td>
+              </tr>
+              <tr>
+                <td><code>in</code></td>
+                <td>Membership check</td>
+                <td><code>ip.src.country in ["US", "CA"]</code></td>
+              </tr>
+              <tr>
+                <td><code>and</code>, <code>or</code>, <code>not</code></td>
+                <td>Logical operators</td>
+                <td><code>vpn == true and proxy == true</code></td>
+              </tr>
+              <tr>
+                <td><code>matches</code></td>
+                <td>Regex matching</td>
+                <td><code>path matches "^/api/"</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- IP Intelligence -->
+        <section id="ip-intelligence" class="docs-section">
+          <h2>IP Intelligence</h2>
+          <p>Access detailed IP information for every request:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+<span class="cmt">// Geolocation</span>
+<span class="kw">if</span> (decision.ip.<span class="fn">hasCountry</span>()) {
+  console.<span class="fn">log</span>(decision.ip.country);     <span class="cmt">// "US"</span>
+  console.<span class="fn">log</span>(decision.ip.countryName); <span class="cmt">// "United States"</span>
+}
+
+<span class="kw">if</span> (decision.ip.<span class="fn">hasRegion</span>()) {
+  console.<span class="fn">log</span>(decision.ip.region);      <span class="cmt">// "California"</span>
+}
+
+<span class="kw">if</span> (decision.ip.<span class="fn">hasCity</span>()) {
+  console.<span class="fn">log</span>(decision.ip.city);        <span class="cmt">// "San Francisco"</span>
+}
+
+<span class="cmt">// Network detection</span>
+<span class="kw">if</span> (decision.ip.<span class="fn">isVpn</span>()) {
+  console.<span class="fn">log</span>(<span class="str">"VPN detected"</span>);
+}
+
+<span class="kw">if</span> (decision.ip.<span class="fn">isProxy</span>()) {
+  console.<span class="fn">log</span>(<span class="str">"Proxy detected"</span>);
+}
+
+<span class="kw">if</span> (decision.ip.<span class="fn">isHosting</span>()) {
+  console.<span class="fn">log</span>(<span class="str">"Hosting provider detected"</span>);
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Premium IP Providers -->
+        <section id="ip-providers" class="docs-section">
+          <h2>Premium IP Providers</h2>
+          <p>
+            For production environments, we recommend using dedicated IP intelligence providers for
+            higher accuracy and rate limits.
+          </p>
+
+          <h3>MaxMind GeoIP2</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail, MaxMindProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">MaxMindProvider</span>({
+    <span class="prop">accountId</span>: process.env.MAXMIND_ACCOUNT_ID,
+    <span class="prop">licenseKey</span>: process.env.MAXMIND_LICENSE_KEY,
+    <span class="prop">serviceType</span>: <span class="str">"insights"</span>, <span class="cmt">// "country", "city", or "insights"</span>
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+          </div>
+
+          <h3>IPinfo.io</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail, IPinfoProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">IPinfoProvider</span>({
+    <span class="prop">token</span>: process.env.IPINFO_TOKEN,
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+          </div>
+
+          <h3>Fallback Strategy</h3>
+          <p>Chain multiple providers to ensure high availability:</p>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail, FallbackIPProvider, MaxMindProvider, IPinfoProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">FallbackIPProvider</span>([
+    <span class="kw">new</span> <span class="fn">MaxMindProvider</span>({ <span class="cmt">/* ... */</span> }),
+    <span class="kw">new</span> <span class="fn">IPinfoProvider</span>({ <span class="cmt">/* ... */</span> }),
+  ]),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+          </div>
+        </section>
+
+        <!-- Advanced VPN Detection -->
+        <section id="vpn-detection" class="docs-section">
+          <h2>Standalone VPN/Proxy Detection</h2>
+          <p>Use the advanced VPN detection logic independently of the main guardrail pipeline:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { VPNProxyDetection } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> vpnDetector = <span class="kw">new</span> <span class="fn">VPNProxyDetection</span>({
+  <span class="prop">enableHeuristicDetection</span>: <span class="kw">true</span>,
+  <span class="prop">confidenceThreshold</span>: <span class="num">50</span>,
+  <span class="prop">customVPNProviders</span>: [<span class="str">"my-internal-vpn"</span>],
+});
+
+<span class="cmt">// Check an IP</span>
+<span class="kw">const</span> result = <span class="kw">await</span> vpnDetector.<span class="fn">check</span>(<span class="str">"1.2.3.4"</span>);
+<span class="kw">if</span> (result.isVpn) {
+  console.<span class="fn">log</span>(<span class="str">"VPN detected via:"</span>, result.method);
+}
+
+<span class="cmt">// Get detection statistics</span>
+console.<span class="fn">log</span>(vpnDetector.<span class="fn">getProviderCounts</span>());</code></pre>
+          </div>
+        </section>
+
+        <!-- Storage -->
+        <section id="storage" class="docs-section">
+          <h2>Storage Backends</h2>
+
+          <h3>Memory Storage</h3>
+          <p>Default storage for single-instance deployments:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail, MemoryStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">MemoryStorage</span>(<span class="num">10000</span>),  <span class="cmt">// Max cache size</span>
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+          </div>
+
+          <h3>Redis Storage</h3>
+          <p>For distributed deployments with multiple instances:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { guardrail, RedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">RedisStorage</span>(process.env.REDIS_URL),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+          </div>
+        </section>
+
+        <!-- Configuration -->
+        <section id="configuration" class="docs-section">
+          <h2>Configuration</h2>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+
+  <span class="cmt">// Error handling mode</span>
+  <span class="prop">errorHandling</span>: <span class="str">"FAIL_CLOSED"</span>,  <span class="cmt">// or "FAIL_OPEN" (default)</span>
+
+  <span class="cmt">// Evaluation strategy</span>
+  <span class="prop">evaluationStrategy</span>: <span class="str">"PARALLEL"</span>,  <span class="cmt">// or "SEQUENTIAL", "SHORT_CIRCUIT"</span>
+
+  <span class="cmt">// Debug mode</span>
+  <span class="prop">debug</span>: <span class="kw">true</span>,
+
+  <span class="cmt">// Whitelist</span>
+  <span class="prop">whitelist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>],
+    <span class="prop">userIds</span>: [<span class="str">"admin"</span>],
+    <span class="prop">countries</span>: [<span class="str">"US"</span>, <span class="str">"CA"</span>],
+  },
+
+  <span class="cmt">// Blacklist</span>
+  <span class="prop">blacklist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"5.6.7.8"</span>],
+    <span class="prop">countries</span>: [<span class="str">"XX"</span>],
+  },
+});</code></pre>
+          </div>
+
+          <h3>Error Handling Modes</h3>
+          <ul>
+            <li><strong>FAIL_OPEN</strong> (default) — On errors, allow requests through</li>
+            <li><strong>FAIL_CLOSED</strong> — On errors, deny requests (more secure)</li>
+          </ul>
+
+          <h3>Evaluation Strategies</h3>
+          <ul>
+            <li><strong>SEQUENTIAL</strong> (default) — Evaluate rules one by one</li>
+            <li><strong>PARALLEL</strong> — Evaluate all rules simultaneously</li>
+            <li><strong>SHORT_CIRCUIT</strong> — Stop on first DENY decision</li>
+          </ul>
+        </section>
+
+        <!-- Metrics & Events -->
+        <section id="metrics" class="docs-section">
+          <h2>Metrics & Events</h2>
+
+          <h3>Metrics Collection</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Get metrics</span>
+<span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+console.<span class="fn">log</span>(metrics.<span class="fn">getMetrics</span>());
+
+<span class="cmt">// Available metrics:</span>
+<span class="cmt">// - guardrail.requests.total</span>
+<span class="cmt">// - guardrail.decisions.allowed</span>
+<span class="cmt">// - guardrail.decisions.denied</span>
+<span class="cmt">// - guardrail.request.duration</span>
+<span class="cmt">// - guardrail.rule.{ruleType}.duration</span></code></pre>
+          </div>
+
+          <h3>Event System</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code>gr.<span class="fn">on</span>(<span class="str">"decision.denied"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">"Denied:"</span>, event.decision);
+});
+
+gr.<span class="fn">on</span>(<span class="str">"rule.evaluate"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">"Evaluating:"</span>, event.ruleType);
+});
+
+<span class="cmt">// Available events:</span>
+<span class="cmt">// - rule.evaluate</span>
+<span class="cmt">// - rule.allow</span>
+<span class="cmt">// - rule.deny</span>
+<span class="cmt">// - decision.allowed</span>
+<span class="cmt">// - decision.denied</span>
+<span class="cmt">// - storage.error</span>
+<span class="cmt">// - ip-lookup.error</span></code></pre>
+          </div>
+        </section>
+
+        <!-- API Reference -->
+        <section id="api" class="docs-section">
+          <h2>API Reference</h2>
+
+          <h3>guardrail(config)</h3>
+          <p>Creates a new Guardrail instance.</p>
+
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>rules</code></td>
+                <td>Array</td>
+                <td>Array of rule configurations (required)</td>
+              </tr>
+              <tr>
+                <td><code>storage</code></td>
+                <td>Storage</td>
+                <td>Storage adapter (default: MemoryStorage)</td>
+              </tr>
+              <tr>
+                <td><code>ipService</code></td>
+                <td>IPService</td>
+                <td>IP geolocation service</td>
+              </tr>
+              <tr>
+                <td><code>errorHandling</code></td>
+                <td>String</td>
+                <td>"FAIL_OPEN" or "FAIL_CLOSED"</td>
+              </tr>
+              <tr>
+                <td><code>evaluationStrategy</code></td>
+                <td>String</td>
+                <td>"SEQUENTIAL", "PARALLEL", or "SHORT_CIRCUIT"</td>
+              </tr>
+              <tr>
+                <td><code>debug</code></td>
+                <td>Boolean</td>
+                <td>Enable debug mode and metrics</td>
+              </tr>
+              <tr>
+                <td><code>whitelist</code></td>
+                <td>Object</td>
+                <td>Whitelist configuration</td>
+              </tr>
+              <tr>
+                <td><code>blacklist</code></td>
+                <td>Object</td>
+                <td>Blacklist configuration</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>protect(request, options?)</h3>
+          <p>Evaluates a request against all configured rules and returns a decision.</p>
+
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>userId</code></td>
+                <td>String</td>
+                <td>User identifier for rate limiting</td>
+              </tr>
+              <tr>
+                <td><code>email</code></td>
+                <td>String</td>
+                <td>Email address for validation</td>
+              </tr>
+              <tr>
+                <td><code>requested</code></td>
+                <td>Number</td>
+                <td>Number of tokens/requests requested</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Examples -->
+        <section id="examples" class="docs-section">
+          <h2>Examples</h2>
+
+          <h3>Payment Form Protection</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">detectBot</span>({ <span class="prop">allow</span>: [] }),
+    <span class="fn">validateEmail</span>({
+      <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>, <span class="str">"INVALID"</span>, <span class="str">"NO_MX_RECORDS"</span>],
+    }),
+    <span class="fn">slidingWindow</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">5</span> }),
+  ],
+  <span class="prop">whitelist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>],  <span class="cmt">// Admin IP</span>
+  },
+});
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> { email } = <span class="kw">await</span> req.<span class="fn">json</span>();
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, { email });
+
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+    <span class="kw">if</span> (decision.reason.<span class="fn">isBot</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Bot detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+    }
+    <span class="kw">if</span> (decision.reason.<span class="fn">isEmail</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Invalid email"</span>, { <span class="prop">status</span>: <span class="num">400</span> });
+    }
+    <span class="kw">if</span> (decision.reason.<span class="fn">isRateLimit</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Rate limit exceeded"</span>, { <span class="prop">status</span>: <span class="num">429</span> });
+    }
+  }
+
+  <span class="cmt">// Process payment</span>
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Payment processed"</span>);
+}</code></pre>
+          </div>
+
+          <h3>AI Quota Control</h3>
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">tokenBucket</span>({
+      <span class="prop">characteristics</span>: [<span class="str">"userId"</span>],
+      <span class="prop">refillRate</span>: <span class="num">2000</span>,
+      <span class="prop">interval</span>: <span class="str">"1h"</span>,
+      <span class="prop">capacity</span>: <span class="num">5000</span>,
+    }),
+  ],
+  <span class="prop">evaluationStrategy</span>: <span class="str">"SHORT_CIRCUIT"</span>,
+});
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> { userId, prompt } = <span class="kw">await</span> req.<span class="fn">json</span>();
+  <span class="kw">const</span> estimatedTokens = <span class="fn">estimateTokens</span>(prompt);
+
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+    userId,
+    <span class="prop">requested</span>: estimatedTokens,
+  });
+
+  <span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+    <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+    <span class="kw">return</span> Response.<span class="fn">json</span>(
+      { <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>, remaining },
+      { <span class="prop">status</span>: <span class="num">429</span> }
+    );
+  }
+
+  <span class="cmt">// Process AI request</span>
+  <span class="kw">return</span> Response.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Testing -->
+        <section id="testing" class="docs-section">
+          <h2>Testing</h2>
+          <p>Guardrail includes testing utilities for unit and integration tests:</p>
+
+          <div class="docs-code">
+            <div class="docs-code-header">
+              <span class="docs-code-lang">typescript</span>
+              <button class="docs-code-copy">Copy</button>
+            </div>
+            <pre><code><span class="kw">import</span> { createTestGuardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/testing"</span>;
+<span class="kw">import</span> { shield, slidingWindow } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> { guardrail, storage, ipService } = <span class="fn">createTestGuardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">slidingWindow</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+});
+
+<span class="cmt">// Mock IP data</span>
+ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, {
+  <span class="prop">country</span>: <span class="str">"US"</span>,
+  <span class="prop">countryName</span>: <span class="str">"United States"</span>,
+  <span class="prop">city</span>: <span class="str">"San Francisco"</span>,
+});
+
+<span class="cmt">// Test your code</span>
+<span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(req);
+<span class="fn">expect</span>(decision.<span class="fn">isAllowed</span>()).<span class="fn">toBe</span>(<span class="kw">true</span>);</code></pre>
+          </div>
+        </section>
+
+        <!-- Known Limitations -->
+        <section id="limitations" class="docs-section">
+          <h2>Known Limitations</h2>
+
+          <h3>IP Geolocation</h3>
+          <ul>
+            <li>
+              <strong>Default provider uses free APIs</strong> with rate limits (ipapi.co: 1000/day,
+              ip-api.com: 45/min)
+            </li>
+            <li>
+              <strong>Recommendation</strong>: Use <code>MaxMindProvider</code>,
+              <code>IPinfoProvider</code>, or <code>IPQualityScoreProvider</code> for production
+            </li>
+          </ul>
+
+          <h3>VPN/Proxy Detection</h3>
+          <ul>
+            <li>
+              Detection is based on ASN name matching against a comprehensive (100+) but not
+              exhaustive list
+            </li>
+            <li>
+              <strong>Recommendation</strong>: Use <code>IPQualityScoreProvider</code> for advanced
+              fraud detection
+            </li>
+          </ul>
+
+          <h3>Bot Detection</h3>
+          <ul>
+            <li>Basic detection uses User-Agent matching only</li>
+            <li>
+              <strong>Recommendation</strong>: Use <code>detectBot()</code> with configuration for
+              header analysis and behavioral signals
+            </li>
+            <li>Client-side fingerprinting requires a separate implementation</li>
+          </ul>
+
+          <h3>Rate Limiting</h3>
+          <ul>
+            <li><code>MemoryStorage</code> does not sync across Node.js cluster workers</li>
+            <li>
+              <strong>Recommendation</strong>: Use <code>AtomicRedisStorage</code> for distributed
+              deployments
+            </li>
+          </ul>
+
+          <h3>Attack Protection</h3>
+          <ul>
+            <li>
+              Guardrail is <strong>not a replacement</strong> for enterprise WAF solutions
+              (Cloudflare, AWS WAF)
+            </li>
+            <li>Use <code>shield()</code> with configuration for comprehensive OWASP coverage</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="docs-menu-toggle" aria-label="Toggle documentation menu">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M3 12h18M3 6h18M3 18h18" />
+      </svg>
+    </button>
+
+    <script src="app.js"></script>
+  </body>
+</html>
