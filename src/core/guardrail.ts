@@ -1,0 +1,1129 @@
+/**
+ * Main Guardrail class that orchestrates all rules and protection mechanisms
+ * @class Guardrail
+ */
+
+import type {
+  GuardrailConfig,
+  Decision,
+  ProtectOptions,
+  RuleResult,
+  GuardrailRule,
+  DenialReason,
+  StorageAdapter,
+  IPGeolocationService,
+  ErrorHandlingMode,
+  EvaluationStrategy,
+  DecisionContext,
+} from "../types/index";
+import type { CustomRule, CustomRuleFactory } from "../types/custom-rules";
+import { MemoryStorage } from "../storage/memory";
+import { IPGeolocation } from "../services/ip-geolocation";
+import { VPNProxyDetection } from "../services/vpn-detection";
+import { TokenBucketRule } from "../rules/token-bucket";
+import { SlidingWindowRule } from "../rules/sliding-window";
+import { BotDetectionRule } from "../rules/bot-detection";
+import { EmailValidationRule } from "../rules/email-validation";
+import { ShieldRule } from "../rules/shield";
+import { FilterRule } from "../rules/filter";
+import { extractIPFromRequest } from "../utils/fingerprint";
+import { isLocalhostOrPrivateIP } from "../utils/ip-validator";
+import { explainDecision } from "../utils/decision-explainer";
+import {
+  validateConfig,
+  formatValidationErrors,
+  ConfigValidationError,
+} from "../utils/config-validator";
+import { EnhancedIPInfo } from "../utils/ip-info";
+import { DecisionReason, findRateLimitResult } from "../utils/decision-helpers";
+import { randomUUID } from "crypto";
+import type {
+  AnyRuleEvaluator,
+  TokenBucketEvaluator,
+  SlidingWindowEvaluator,
+  BotDetectionEvaluator,
+  EmailValidationEvaluator,
+  ShieldEvaluator,
+  FilterEvaluator,
+} from "../types/evaluators";
+import { RuleEvaluationError, IPGeolocationError } from "../errors/index";
+import { CircuitBreaker } from "../utils/circuit-breaker";
+import { InMemoryMetricsCollector, type MetricsCollector } from "../utils/metrics";
+import { ConsoleLogger, type Logger } from "../utils/logger";
+import { GuardrailEventEmitter, type GuardrailEventUnion } from "../utils/events";
+import { MiddlewareChain, type Middleware } from "../utils/middleware";
+
+import { GuardrailPresets } from "./presets";
+import { AtomicRedisStorage } from "../storage/redis-atomic";
+
+import pc from "picocolors";
+
+/**
+ * Rule entry with its evaluator
+ */
+interface RuleEntry {
+  rule: GuardrailRule;
+  evaluator: AnyRuleEvaluator;
+}
+
+/**
+ * Evaluation context
+ */
+interface EvaluationContext {
+  request: Request;
+  characteristics: Record<string, string | number | undefined>;
+  enhancedIPInfo: import("../types/index").IPInfo;
+  options: ProtectOptions;
+}
+
+/**
+ * Main Guardrail class for request protection and rate limiting
+ */
+export class Guardrail {
+  private readonly storage: StorageAdapter;
+  private readonly ipService: IPGeolocationService;
+  private readonly vpnDetector: VPNProxyDetection;
+  private readonly rules: RuleEntry[] = [];
+  private readonly errorHandling: ErrorHandlingMode;
+  private readonly evaluationStrategy: EvaluationStrategy;
+  private readonly debug: boolean;
+  private readonly whitelist?: GuardrailConfig["whitelist"];
+  private readonly blacklist?: GuardrailConfig["blacklist"];
+  private readonly storageCircuitBreaker: CircuitBreaker;
+  private readonly ipCircuitBreaker: CircuitBreaker;
+  private readonly metrics: MetricsCollector;
+  private readonly logger: Logger;
+  private readonly events: GuardrailEventEmitter;
+  private readonly middleware: MiddlewareChain;
+  private readonly customRuleFactories: Map<string, CustomRuleFactory> = new Map();
+  private readonly requestCache: Map<string, { decision: Decision; expires: number }> = new Map();
+  private cacheCleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Gets the storage adapter used by this instance
+   */
+  public getStorage(): StorageAdapter {
+    return this.storage;
+  }
+
+  /**
+   * Gets the IP geolocation service used by this instance
+   */
+  public getIPService(): IPGeolocationService {
+    return this.ipService;
+  }
+
+  /**
+   * Generates standard security headers from a decision
+   */
+  static getSecurityHeaders(decision: Decision): Record<string, string> {
+    const headers: Record<string, string> = {
+      "X-Guardrail-Id": decision.id,
+      "X-Guardrail-Conclusion": decision.conclusion,
+    };
+
+    const rateLimitResult = decision.results.find(
+      (r) => (r.rule === "slidingWindow" || r.rule === "tokenBucket") && r.remaining !== undefined
+    );
+
+    if (rateLimitResult) {
+      if (rateLimitResult.remaining !== undefined) {
+        headers["X-RateLimit-Remaining"] = rateLimitResult.remaining.toString();
+      }
+      if (rateLimitResult.limit !== undefined) {
+        headers["X-RateLimit-Limit"] = rateLimitResult.limit.toString();
+      }
+      if (rateLimitResult.reset) {
+        headers["X-RateLimit-Reset"] = Math.ceil(rateLimitResult.reset / 1000).toString();
+      }
+      // Add Retry-After header for rate-limited requests
+      if (decision.isDenied() && (decision.reason.isRateLimit() || decision.reason.isQuota())) {
+        if (rateLimitResult.reset) {
+          const retryAfter = Math.ceil((rateLimitResult.reset - Date.now()) / 1000);
+          if (retryAfter > 0) {
+            headers["Retry-After"] = retryAfter.toString();
+          }
+        }
+      }
+    }
+
+    return headers;
+  }
+
+  /**
+   * Creates a Web API Request from common framework request objects
+   */
+  static toWebRequest(req: {
+    protocol?: string;
+    headers?: Record<string, unknown> | Headers | any;
+    get?: (name: string) => string | undefined;
+    originalUrl?: string;
+    url?: string;
+    method?: string;
+    body?: unknown;
+    raw?: unknown;
+  }): Request {
+    // If it's already a Web Request, return it
+    if (req instanceof Request) {
+      return req as unknown as Request;
+    }
+
+    const actualReq = (req.raw || req) as {
+      protocol?: string;
+      headers?: Record<string, unknown>;
+      get?: (name: string) => string | undefined;
+      originalUrl?: string;
+      url?: string;
+      method?: string;
+      body?: unknown;
+    };
+
+    // Handle Express/Connect/Nest/Fastify style requests
+    const protocol = actualReq.protocol || "http";
+    const host = actualReq.get?.("host") || (actualReq.headers?.host as string) || "localhost";
+    const url = actualReq.originalUrl || actualReq.url || "/";
+    const fullUrl = url.startsWith("http") ? url : `${protocol}://${host}${url}`;
+
+    const headers: Record<string, string> = {};
+    if (actualReq.headers) {
+      if (actualReq.headers instanceof Headers) {
+        actualReq.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+      } else {
+        for (const [key, value] of Object.entries(actualReq.headers)) {
+          if (value !== undefined) {
+            headers[key] = Array.isArray(value) ? value.join(", ") : (value as string);
+          }
+        }
+      }
+    }
+
+    return new Request(fullUrl, {
+      method: actualReq.method || "GET",
+      headers,
+      body:
+        actualReq.method !== "GET" && actualReq.method !== "HEAD" && actualReq.body
+          ? typeof actualReq.body === "string"
+            ? actualReq.body
+            : JSON.stringify(actualReq.body)
+          : undefined,
+    });
+  }
+
+  /**
+   * Creates a new Guardrail instance
+   * @param config - Guardrail configuration
+   */
+  constructor(config: Partial<GuardrailConfig> = {}) {
+    const finalConfig = this.resolveConfig(config);
+
+    // Validate configuration
+    const validation = validateConfig(finalConfig);
+    if (!validation.valid) {
+      const errorMessage = formatValidationErrors(validation.errors);
+      throw new ConfigValidationError(errorMessage);
+    }
+
+    this.storage = finalConfig.storage ?? this.autoDiscoverStorage() ?? new MemoryStorage();
+    this.ipService = finalConfig.ipService ?? new IPGeolocation(this.storage);
+    this.vpnDetector = new VPNProxyDetection();
+    this.errorHandling = finalConfig.errorHandling ?? "FAIL_OPEN";
+    this.evaluationStrategy = finalConfig.evaluationStrategy ?? "SEQUENTIAL";
+    this.debug = finalConfig.debug ?? false;
+    this.whitelist = finalConfig.whitelist;
+    this.blacklist = finalConfig.blacklist;
+
+    this.storageCircuitBreaker = new CircuitBreaker({
+      failureThreshold: finalConfig.resilience?.storage?.threshold ?? 5,
+      resetTimeout: finalConfig.resilience?.storage?.timeout ?? 30000,
+    });
+
+    this.ipCircuitBreaker = new CircuitBreaker({
+      failureThreshold: finalConfig.resilience?.ip?.threshold ?? 3,
+      resetTimeout: finalConfig.resilience?.ip?.timeout ?? 60000,
+    });
+
+    // Use Prometheus metrics collector if available, otherwise use in-memory for debug
+    if (finalConfig.metricsCollector) {
+      this.metrics = finalConfig.metricsCollector;
+    } else if (this.debug) {
+      this.metrics = new InMemoryMetricsCollector();
+    } else {
+      // No-op metrics collector for production when metrics are disabled
+      this.metrics = new (class {
+        increment() {}
+        gauge() {}
+        histogram() {}
+        getMetrics() {
+          return [];
+        }
+        reset() {}
+      })();
+    }
+
+    // Use provided logger or fallback to ConsoleLogger
+    this.logger = finalConfig.logger ?? new ConsoleLogger(this.debug);
+    this.events = new GuardrailEventEmitter();
+    this.middleware = new MiddlewareChain();
+
+    // Start cache cleanup interval to prevent memory leaks
+    this.startCacheCleanup();
+
+    // Register graceful shutdown handler for production
+    if (typeof process !== "undefined" && typeof process.on === "function") {
+      this.registerShutdownHandlers();
+    }
+
+    for (const rule of finalConfig.rules || []) {
+      this.addRule(rule);
+    }
+  }
+
+  /**
+   * Registers graceful shutdown handlers
+   * @internal
+   */
+  private registerShutdownHandlers(): void {
+    const cleanup = () => {
+      this.logger.info("Guardrail: Performing graceful shutdown cleanup...");
+      this.destroy();
+    };
+
+    // Handle SIGTERM (common in production environments)
+    process.once("SIGTERM", cleanup);
+    // Handle SIGINT (Ctrl+C)
+    process.once("SIGINT", cleanup);
+    // Handle uncaught exceptions (last resort)
+    process.once("uncaughtException", (error) => {
+      this.logger.error("Guardrail: Uncaught exception, performing cleanup:", error);
+      cleanup();
+    });
+  }
+
+  /**
+   * Starts the cache cleanup interval
+   */
+  private startCacheCleanup(): void {
+    // Clean up expired cache entries every 5 seconds
+    this.cacheCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.requestCache.entries()) {
+        if (entry.expires < now) {
+          this.requestCache.delete(key);
+        }
+      }
+    }, 5000);
+  }
+
+  /**
+   * Stops the cache cleanup interval (for cleanup/testing)
+   * @internal
+   */
+  stopCacheCleanup(): void {
+    if (this.cacheCleanupInterval) {
+      clearInterval(this.cacheCleanupInterval);
+      this.cacheCleanupInterval = null;
+    }
+  }
+
+  /**
+   * Destroys the Guardrail instance and cleans up all resources
+   * Should be called when the instance is no longer needed to prevent memory leaks
+   */
+  destroy(): void {
+    // Stop cache cleanup interval
+    this.stopCacheCleanup();
+
+    // Clear request cache
+    this.requestCache.clear();
+
+    // Clear custom rule factories
+    this.customRuleFactories.clear();
+
+    // Clear middleware chain
+    this.middleware.clear();
+
+    // Clear event listeners
+    this.events.removeAllListeners();
+  }
+
+  /**
+   * Resolves configuration with zero-config defaults
+   */
+  private resolveConfig(config: Partial<GuardrailConfig>): GuardrailConfig {
+    if (!config.rules || config.rules.length === 0) {
+      return {
+        ...GuardrailPresets.api(),
+        ...config,
+      } as GuardrailConfig;
+    }
+    return config as GuardrailConfig;
+  }
+
+  /**
+   * Automatically discovers storage based on environment variables
+   */
+  private autoDiscoverStorage(): StorageAdapter | undefined {
+    // Check for common Redis environment variables
+    const redisUrl =
+      process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_HOST;
+
+    if (redisUrl) {
+      try {
+        return new AtomicRedisStorage({
+          redis: redisUrl,
+          keyPrefix: "guardrail:",
+        });
+      } catch (error) {
+        console.warn("Failed to auto-initialize Redis storage:", error);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Checks the health of the guardrail instance and its dependencies
+   */
+  async checkHealth(): Promise<{
+    status: "healthy" | "unhealthy";
+    storage: "connected" | "disconnected" | "not_applicable";
+    ipService: "operational" | "degraded" | "error";
+  }> {
+    let storageStatus: "connected" | "disconnected" | "not_applicable" = "not_applicable";
+    if (this.storage instanceof AtomicRedisStorage) {
+      storageStatus = this.storage.isConnected() ? "connected" : "disconnected";
+    }
+
+    let ipStatus: "operational" | "degraded" | "error" = "operational";
+    try {
+      await this.ipService.lookup("8.8.8.8");
+    } catch {
+      ipStatus = "error";
+    }
+
+    return {
+      status: storageStatus === "disconnected" || ipStatus === "error" ? "unhealthy" : "healthy",
+      storage: storageStatus,
+      ipService: ipStatus,
+    };
+  }
+
+  /**
+   * Adds a middleware to the chain
+   */
+  use(middleware: Middleware): void {
+    this.middleware.use(middleware);
+  }
+
+  /**
+   * Registers an event handler
+   */
+  on(
+    eventType: GuardrailEventUnion["type"],
+    handler: (event: GuardrailEventUnion) => void | Promise<void>
+  ): () => void {
+    return this.events.on(eventType, handler);
+  }
+
+  /**
+   * Registers a custom rule factory
+   */
+  registerCustomRule(type: string, factory: CustomRuleFactory): void {
+    this.customRuleFactories.set(type, factory);
+  }
+
+  /**
+   * Gets metrics collector
+   */
+  getMetrics(): MetricsCollector {
+    return this.metrics;
+  }
+
+  /**
+   * Adds a rule to the guardrail instance
+   */
+  private addRule(rule: GuardrailRule): void {
+    const evaluator = this.createEvaluator(rule);
+    this.rules.push({ rule, evaluator });
+  }
+
+  /**
+   * Creates an evaluator for a given rule
+   */
+  private createEvaluator(rule: GuardrailRule): AnyRuleEvaluator {
+    switch (rule.type) {
+      case "tokenBucket":
+        return new TokenBucketRule(rule, this.storage);
+      case "slidingWindow":
+        return new SlidingWindowRule(rule, this.storage);
+      case "detectBot":
+        return new BotDetectionRule(rule);
+      case "validateEmail":
+        return new EmailValidationRule(rule);
+      case "shield":
+        return new ShieldRule(rule);
+      case "filter":
+        return new FilterRule(rule);
+      case "custom": {
+        const customRule = rule;
+        const factory = this.customRuleFactories.get(customRule.ruleType);
+        if (!factory) {
+          throw new Error(`Custom rule type '${customRule.ruleType}' not registered`);
+        }
+        return factory(customRule.config) as unknown as AnyRuleEvaluator;
+      }
+      default: {
+        const _exhaustive: never = rule;
+        throw new Error(`Unknown rule type: ${(_exhaustive as GuardrailRule).type}`);
+      }
+    }
+  }
+
+  /**
+   * Checks whitelist/blacklist before evaluation
+   */
+  private checkLists(
+    ip: string,
+    userId?: string,
+    email?: string,
+    country?: string
+  ): { allowed: boolean; reason?: string } {
+    // Check if IP is private/localhost and allow in development mode as fallback
+    // (Note: GuardrailModule should already whitelist these, but this provides a safety net)
+    if (isLocalhostOrPrivateIP(ip) && process.env.NODE_ENV !== "production") {
+      // Only allow if not explicitly blacklisted
+      if (!this.blacklist?.ips?.includes(ip)) {
+        return { allowed: true };
+      }
+    }
+
+    if (this.whitelist) {
+      if (this.whitelist.ips?.includes(ip)) {
+        return { allowed: true };
+      }
+      if (userId && this.whitelist.userIds?.includes(userId)) {
+        return { allowed: true };
+      }
+      if (country && this.whitelist.countries?.includes(country)) {
+        return { allowed: true };
+      }
+      if (email) {
+        const domain = email.split("@")[1];
+        if (domain && this.whitelist.emailDomains?.includes(domain)) {
+          return { allowed: true };
+        }
+      }
+    }
+
+    if (this.blacklist) {
+      if (this.blacklist.ips?.includes(ip)) {
+        return { allowed: false, reason: "IP blacklisted" };
+      }
+      if (userId && this.blacklist.userIds?.includes(userId)) {
+        return { allowed: false, reason: "User blacklisted" };
+      }
+      if (country && this.blacklist.countries?.includes(country)) {
+        return { allowed: false, reason: "Country blacklisted" };
+      }
+      if (email) {
+        const domain = email.split("@")[1];
+        if (domain && this.blacklist.emailDomains?.includes(domain)) {
+          return { allowed: false, reason: "Email domain blacklisted" };
+        }
+      }
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * Evaluates all rules against a request
+   */
+  async protect(request: Request, options: ProtectOptions = {}): Promise<Decision> {
+    const startTime = Date.now();
+    const decisionId = randomUUID();
+    this.metrics.increment("guardrail.requests.total");
+
+    const cacheKey = this.getCacheKey(request, options);
+    if (cacheKey) {
+      const cached = this.requestCache.get(cacheKey);
+      if (cached && cached.expires > Date.now()) {
+        this.metrics.increment("guardrail.requests.cached");
+        return cached.decision;
+      }
+    }
+
+    try {
+      const ip = extractIPFromRequest(request);
+      let ipInfo: import("../types/index").IPInfo;
+
+      try {
+        ipInfo = await this.ipCircuitBreaker.execute(
+          () => this.ipService.lookup(ip),
+          "ip-geolocation"
+        );
+        this.metrics.increment("guardrail.ip_lookup.success");
+      } catch (error) {
+        this.metrics.increment("guardrail.ip_lookup.error");
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isRateLimit = errorMessage.includes("429") || errorMessage.includes("rate limit");
+        const errorDetails = isRateLimit
+          ? `IP geolocation rate limit exceeded for ${ip}. Consider using a premium provider or increasing rate limits.`
+          : `IP geolocation lookup failed for ${ip}: ${errorMessage}`;
+
+        this.logger.error(errorDetails, error);
+        await this.events.emit({
+          type: "ip-lookup.error",
+          timestamp: Date.now(),
+          decisionId,
+          error: error instanceof Error ? error : new Error(String(error)),
+          context: { ip, isRateLimit },
+        });
+
+        if (this.errorHandling === "FAIL_CLOSED") {
+          throw new IPGeolocationError(
+            `IP lookup failed for ${ip}. Request denied due to FAIL_CLOSED error handling mode. Original error: ${errorMessage}`,
+            ip,
+            error as Error
+          );
+        }
+
+        // In FAIL_OPEN mode, use empty IPInfo but log warning
+        this.logger.warn(
+          `IP lookup failed for ${ip}. Using empty IP info (FAIL_OPEN mode). Some filter rules may not work correctly.`
+        );
+        ipInfo = {};
+      }
+
+      const enhancedIPInfo = this.vpnDetector.detect(ipInfo);
+
+      const listCheck = this.checkLists(ip, options.userId, options.email, ipInfo.country);
+
+      if (!listCheck.allowed) {
+        this.metrics.increment("guardrail.decisions.denied", { reason: "blacklist" });
+        return this.createDenyDecision(
+          decisionId,
+          "FILTER",
+          ipInfo,
+          this.extractCharacteristics(ip, options),
+          options.metadata
+        );
+      }
+
+      if (listCheck.allowed && this.whitelist) {
+        this.metrics.increment("guardrail.decisions.allowed", { reason: "whitelist" });
+        return this.createAllowDecision(
+          decisionId,
+          ipInfo,
+          this.extractCharacteristics(ip, options),
+          options.metadata
+        );
+      }
+
+      const characteristics = this.extractCharacteristics(ip, options);
+
+      const context: EvaluationContext = {
+        request,
+        characteristics,
+        enhancedIPInfo,
+        options,
+      };
+
+      await this.middleware.execute({ request, options });
+
+      const results = await this.evaluateRules(context);
+      const conclusion = this.determineConclusion(results);
+      const denialReason = this.getDenialReason(results);
+
+      const enhancedIP = new EnhancedIPInfo(enhancedIPInfo);
+      const rateLimitResult = findRateLimitResult(results);
+      const reason = new DecisionReason(denialReason, rateLimitResult);
+
+      const decision = this.createDecision({
+        id: decisionId,
+        conclusion,
+        reason,
+        results,
+        ip: enhancedIP,
+        characteristics,
+        metadata: options.metadata || {},
+      });
+
+      const duration = Date.now() - startTime;
+      this.metrics.histogram("guardrail.request.duration", duration);
+
+      const summary = `${conclusion === "ALLOW" ? pc.green("PASS") : pc.red("BLOCK")} ${pc.bold(
+        request.method
+      )} ${new URL(request.url).pathname} - ${pc.gray(decisionId)} (${duration}ms)${
+        conclusion === "DENY" ? ` - Reason: ${pc.yellow(denialReason || "unknown")}` : ""
+      }`;
+      this.logger.info(summary);
+
+      this.metrics.increment(
+        `guardrail.decisions.${conclusion.toLowerCase()}`,
+        conclusion === "DENY" ? { reason: denialReason || "unknown" } : {}
+      );
+
+      await this.events.emit({
+        type: conclusion === "ALLOW" ? "decision.allowed" : "decision.denied",
+        timestamp: Date.now(),
+        decisionId,
+        decision,
+      });
+
+      // Compact debug output
+      if (this.debug) {
+        this.logCompactDecision(decision);
+      } else {
+        this.logger.debug(`Decision ${conclusion} for request ${decisionId}`, {
+          duration,
+          results: results.length,
+        });
+      }
+
+      if (cacheKey) {
+        this.requestCache.set(cacheKey, {
+          decision,
+          expires: Date.now() + 1000,
+        });
+        // Cleanup is handled by interval-based cleanup, no need for individual timeouts
+      }
+
+      return decision;
+    } catch (error) {
+      this.metrics.increment("guardrail.errors.total");
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = `Request protection failed after ${duration}ms: ${errorMessage}`;
+      this.logger.error(errorDetails, error);
+
+      if (this.errorHandling === "FAIL_CLOSED") {
+        const enhancedError =
+          error instanceof Error
+            ? new Error(
+                `Guardrail protection failed (FAIL_CLOSED mode). Request denied. Original error: ${errorMessage}`
+              )
+            : error;
+        throw enhancedError;
+      }
+
+      // In FAIL_OPEN mode, allow the request but log warning
+      this.logger.warn(
+        `Guardrail protection failed. Allowing request (FAIL_OPEN mode). Original error: ${errorMessage}`
+      );
+      return this.createAllowDecision(
+        decisionId,
+        {},
+        this.extractCharacteristics(extractIPFromRequest(request), options),
+        options.metadata
+      );
+    }
+  }
+
+  /**
+   * Extracts valid primitive characteristics from options
+   */
+  private extractCharacteristics(
+    ip: string,
+    options: ProtectOptions
+  ): Record<string, string | number | undefined> {
+    const characteristics: Record<string, string | number | undefined> = {
+      "ip.src": ip,
+      userId: options.userId,
+      email: options.email,
+    };
+
+    for (const [key, value] of Object.entries(options)) {
+      if (
+        key !== "metadata" &&
+        (typeof value === "string" || typeof value === "number" || value === undefined)
+      ) {
+        characteristics[key] = value;
+      }
+    }
+
+    return characteristics;
+  }
+
+  /**
+   * Evaluates all rules based on strategy
+   */
+  private async evaluateRules(context: EvaluationContext): Promise<RuleResult[]> {
+    if (this.evaluationStrategy === "PARALLEL") {
+      return this.evaluateRulesParallel(context);
+    } else if (this.evaluationStrategy === "SHORT_CIRCUIT") {
+      return this.evaluateRulesShortCircuit(context);
+    } else {
+      return this.evaluateRulesSequential(context);
+    }
+  }
+
+  /**
+   * Sequential evaluation (default)
+   */
+  private async evaluateRulesSequential(context: EvaluationContext): Promise<RuleResult[]> {
+    const results: RuleResult[] = [];
+
+    for (const { rule, evaluator } of this.rules) {
+      await this.events.emit({
+        type: "rule.evaluate",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+      });
+
+      const result = await this.evaluateRule(rule, evaluator, context);
+      results.push(result);
+
+      await this.events.emit({
+        type: result.conclusion === "ALLOW" ? "rule.allow" : "rule.deny",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+        result,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Parallel evaluation
+   */
+  private async evaluateRulesParallel(context: EvaluationContext): Promise<RuleResult[]> {
+    const evaluations = this.rules.map(async ({ rule, evaluator }) => {
+      await this.events.emit({
+        type: "rule.evaluate",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+      });
+
+      const result = await this.evaluateRule(rule, evaluator, context);
+
+      await this.events.emit({
+        type: result.conclusion === "ALLOW" ? "rule.allow" : "rule.deny",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+        result,
+      });
+
+      return result;
+    });
+
+    return Promise.all(evaluations);
+  }
+
+  /**
+   * Short-circuit evaluation (stops on first DENY)
+   */
+  private async evaluateRulesShortCircuit(context: EvaluationContext): Promise<RuleResult[]> {
+    const results: RuleResult[] = [];
+
+    for (const { rule, evaluator } of this.rules) {
+      await this.events.emit({
+        type: "rule.evaluate",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+      });
+
+      const result = await this.evaluateRule(rule, evaluator, context);
+      results.push(result);
+
+      await this.events.emit({
+        type: result.conclusion === "ALLOW" ? "rule.allow" : "rule.deny",
+        timestamp: Date.now(),
+        ruleType: rule.type,
+        result,
+      });
+
+      if (result.conclusion === "DENY") {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Determines final conclusion from results
+   */
+  private determineConclusion(results: RuleResult[]): "ALLOW" | "DENY" {
+    return results.some((r) => r.conclusion === "DENY") ? "DENY" : "ALLOW";
+  }
+
+  /**
+   * Gets denial reason from results
+   */
+  private getDenialReason(results: RuleResult[]): DenialReason | undefined {
+    const denied = results.find((r) => r.conclusion === "DENY");
+    return denied?.reason;
+  }
+
+  /**
+   * Evaluates a single rule
+   */
+  private async evaluateRule(
+    rule: GuardrailRule,
+    evaluator: AnyRuleEvaluator,
+    context: EvaluationContext
+  ): Promise<RuleResult> {
+    const startTime = Date.now();
+
+    const decisionContext: DecisionContext = {
+      characteristics: context.characteristics,
+      options: context.options,
+      metadata: context.options.metadata || {},
+      ip: new EnhancedIPInfo(context.enhancedIPInfo),
+      rule,
+    };
+
+    try {
+      let result: RuleResult;
+
+      switch (rule.type) {
+        case "tokenBucket": {
+          const tokenEvaluator = evaluator as TokenBucketEvaluator;
+          result = await this.storageCircuitBreaker.execute(
+            () => tokenEvaluator.evaluate(decisionContext, context.options.requested),
+            "storage"
+          );
+          break;
+        }
+        case "slidingWindow": {
+          const slidingEvaluator = evaluator as SlidingWindowEvaluator;
+          result = await this.storageCircuitBreaker.execute(
+            () => slidingEvaluator.evaluate(decisionContext),
+            "storage"
+          );
+          break;
+        }
+        case "detectBot": {
+          const botEvaluator = evaluator as BotDetectionEvaluator;
+          result = await botEvaluator.evaluate(context.request);
+          break;
+        }
+        case "validateEmail": {
+          if (context.options.email) {
+            const emailEvaluator = evaluator as EmailValidationEvaluator;
+            result = await emailEvaluator.evaluate(context.options.email);
+          } else {
+            result = {
+              rule: "validateEmail",
+              conclusion: "ALLOW",
+            };
+          }
+          break;
+        }
+        case "shield": {
+          const shieldEvaluator = evaluator as ShieldEvaluator;
+          result = await shieldEvaluator.evaluate(context.request);
+          break;
+        }
+        case "filter": {
+          const filterEvaluator = evaluator as FilterEvaluator;
+          result = await filterEvaluator.evaluate(
+            context.request,
+            context.enhancedIPInfo,
+            context.characteristics
+          );
+          break;
+        }
+        case "custom": {
+          const customRule = evaluator as unknown as CustomRule;
+          const ip = extractIPFromRequest(context.request);
+          result = await customRule.evaluate({
+            request: context.request,
+            ip,
+            ipInfo: context.enhancedIPInfo,
+            characteristics: context.characteristics,
+            options: context.options,
+          });
+          break;
+        }
+        default: {
+          const _exhaustive: never = rule;
+          result = {
+            rule: (_exhaustive as GuardrailRule).type,
+            conclusion: "ALLOW",
+          };
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      this.metrics.histogram(`guardrail.rule.${rule.type}.duration`, duration);
+
+      return result;
+    } catch (error) {
+      this.metrics.increment(`guardrail.rule.${rule.type}.error`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = `Error evaluating rule ${rule.type}: ${errorMessage}`;
+      this.logger.error(errorDetails, error);
+
+      await this.events.emit({
+        type: "storage.error",
+        timestamp: Date.now(),
+        error: error instanceof Error ? error : new Error(String(error)),
+        context: { ruleType: rule.type },
+      });
+
+      const strategy = rule.errorStrategy ?? this.errorHandling;
+
+      if (strategy === "FAIL_CLOSED") {
+        throw new RuleEvaluationError(
+          `Rule evaluation failed for ${rule.type}. Request denied due to FAIL_CLOSED error handling mode. Original error: ${errorMessage}`,
+          rule.type,
+          error as Error
+        );
+      }
+
+      // In FAIL_OPEN mode, allow the request but log warning
+      this.logger.warn(
+        `Rule ${rule.type} evaluation failed. Allowing request (FAIL_OPEN mode). Original error: ${errorMessage}`
+      );
+      return {
+        rule: rule.type,
+        conclusion: "ALLOW",
+      };
+    }
+  }
+
+  /**
+   * Creates an allow decision
+   */
+  private createAllowDecision(
+    id: string,
+    ipInfo: import("../types/index").IPInfo,
+    characteristics: Record<string, string | number | undefined>,
+    metadata: import("../types/index").GuardrailMetadata = {}
+  ): Decision {
+    const enhancedIP = new EnhancedIPInfo(ipInfo);
+    const reason = new DecisionReason(undefined, undefined);
+
+    return this.createDecision({
+      id,
+      conclusion: "ALLOW",
+      reason,
+      results: [],
+      ip: enhancedIP,
+      characteristics,
+      metadata,
+    });
+  }
+
+  /**
+   * Creates a deny decision
+   */
+  private createDenyDecision(
+    id: string,
+    reasonType: DenialReason,
+    ipInfo: import("../types/index").IPInfo,
+    characteristics: Record<string, string | number | undefined>,
+    metadata: import("../types/index").GuardrailMetadata = {}
+  ): Decision {
+    const enhancedIP = new EnhancedIPInfo(ipInfo);
+    const reason = new DecisionReason(reasonType, undefined);
+
+    return this.createDecision({
+      id,
+      conclusion: "DENY",
+      reason,
+      results: [
+        {
+          rule: "filter",
+          conclusion: "DENY",
+          reason: reasonType,
+        },
+      ],
+      ip: enhancedIP,
+      characteristics,
+      metadata,
+    });
+  }
+
+  /**
+   * Logs a compact decision summary for debug mode
+   */
+  private logCompactDecision(decision: Decision): void {
+    const results = decision.results
+      .map((r) => {
+        const status = r.conclusion === "ALLOW" ? pc.green("✓") : pc.red("✗");
+        const rule = pc.bold(r.rule);
+        const details: string[] = [];
+
+        if (r.conclusion === "DENY" && r.reason) {
+          details.push(pc.yellow(r.reason));
+        }
+        if (r.remaining !== undefined) {
+          details.push(pc.gray(`remaining: ${r.remaining}`));
+        }
+
+        return `${status} ${rule}${details.length > 0 ? ` (${details.join(", ")})` : ""}`;
+      })
+      .join(" | ");
+
+    const ipInfo: string[] = [];
+    if (decision.ip?.hasCountry()) {
+      ipInfo.push(pc.blue(decision.ip.countryName || decision.ip.country || ""));
+    }
+    const securityFlags: string[] = [];
+    if (decision.ip?.isVpn()) securityFlags.push("VPN");
+    if (decision.ip?.isProxy()) securityFlags.push("Proxy");
+    if (decision.ip?.isTor()) securityFlags.push("Tor");
+    if (decision.ip?.isHosting()) securityFlags.push("Hosting");
+    if (securityFlags.length > 0) {
+      ipInfo.push(pc.yellow(securityFlags.join(",")));
+    } else if (decision.ip) {
+      ipInfo.push(pc.green("Clean"));
+    }
+
+    const ipStr = ipInfo.length > 0 ? ` | IP: ${ipInfo.join(", ")}` : "";
+    const compactSummary = `  Rules: ${results}${ipStr}`;
+    this.logger.debug(compactSummary);
+  }
+
+  /**
+   * Generates cache key for request deduplication
+   * Includes method, pathname, IP, and timestamp to prevent collisions
+   */
+  private getCacheKey(request: Request, options: ProtectOptions): string | null {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return null;
+    }
+    const ip = extractIPFromRequest(request);
+    const url = new URL(request.url);
+    const method = request.method;
+    // Include user ID and email from options if available for better uniqueness
+    const userId = options.userId || "";
+    const email = options.email || "";
+    // Include a timestamp bucket (rounded to nearest second) to limit cache duration
+    const timeBucket = Math.floor(Date.now() / 1000);
+
+    // More unique cache key to prevent collisions
+    return `${method}:${url.pathname}:${ip}:${userId}:${email}:${timeBucket}`;
+  }
+
+  /**
+   * Creates a decision object
+   */
+  private createDecision(data: {
+    id: string;
+    conclusion: "ALLOW" | "DENY";
+    reason: DecisionReason;
+    results: RuleResult[];
+    ip: EnhancedIPInfo;
+    metadata: import("../types/index").GuardrailMetadata;
+    characteristics: Record<string, string | number | undefined>;
+  }): Decision {
+    return {
+      ...data,
+      isAllowed(): boolean {
+        return this.conclusion === "ALLOW";
+      },
+      isDenied(): boolean {
+        return this.conclusion === "DENY";
+      },
+      explain(): string {
+        return explainDecision(this);
+      },
+    };
+  }
+}

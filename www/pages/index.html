@@ -1,0 +1,183 @@
+<header class="docs-header">
+  <h1 class="docs-title">Guardrail Documentation</h1>
+  <p class="docs-description">
+    Complete API reference and guides for Guardrail, the open-source security and rate limiting
+    toolkit.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Welcome</h2>
+  <p>
+    Guardrail is a comprehensive security toolkit that provides rate limiting, bot detection, attack
+    protection, and IP intelligence for Node.js applications. It runs entirely on your
+    infrastructure with no external dependencies or usage-based pricing.
+  </p>
+
+  <h3>Quick Links</h3>
+  <div
+    style="
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    "
+  >
+    <a
+      href="docs.html#getting-started"
+      data-route="getting-started"
+      style="
+        padding: 20px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-150);
+        border-radius: var(--radius-md);
+        display: block;
+      "
+    >
+      <strong style="display: block; margin-bottom: 8px">Getting Started</strong>
+      <span style="font-size: 14px; color: var(--gray-500)"
+        >Installation and quick start guide</span
+      >
+    </a>
+    <a
+      href="docs.html#api-guardrail"
+      data-route="api-guardrail"
+      style="
+        padding: 20px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-150);
+        border-radius: var(--radius-md);
+        display: block;
+      "
+    >
+      <strong style="display: block; margin-bottom: 8px">Core API</strong>
+      <span style="font-size: 14px; color: var(--gray-500)"
+        >Main guardrail() function and methods</span
+      >
+    </a>
+    <a
+      href="docs.html#rule-shield"
+      data-route="rule-shield"
+      style="
+        padding: 20px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-150);
+        border-radius: var(--radius-md);
+        display: block;
+      "
+    >
+      <strong style="display: block; margin-bottom: 8px">Rules</strong>
+      <span style="font-size: 14px; color: var(--gray-500)"
+        >Shield, bot detection, rate limiting</span
+      >
+    </a>
+    <a
+      href="docs.html#adapter-express"
+      data-route="adapter-express"
+      style="
+        padding: 20px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-150);
+        border-radius: var(--radius-md);
+        display: block;
+      "
+    >
+      <strong style="display: block; margin-bottom: 8px">Framework Adapters</strong>
+      <span style="font-size: 14px; color: var(--gray-500)"
+        >Express, Next.js, Nest.js, and more</span
+      >
+    </a>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Key Features</h2>
+  <ul>
+    <li><strong>Zero-Config</strong> — Get started with built-in presets and auto-discovery</li>
+    <li><strong>Rate Limiting</strong> — Token bucket and sliding window algorithms</li>
+    <li><strong>Bot Detection</strong> — Identify and block automated traffic</li>
+    <li><strong>IP Intelligence</strong> — Geolocation with VPN/proxy detection</li>
+    <li><strong>Email Validation</strong> — Block disposable and invalid emails</li>
+    <li><strong>Attack Protection</strong> — Shield against SQL injection, XSS, and more</li>
+    <li><strong>Framework Support</strong> — Next.js, Express, Nest.js, Fastify, and Koa</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Documentation Structure</h2>
+  <p>The documentation is organized into the following sections:</p>
+
+  <h3>Core API</h3>
+  <p>Main methods and functions for creating and using Guardrail instances:</p>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create a Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      a request against rules
+    </li>
+    <li>
+      <a href="docs.html#api-checkHealth" data-route="api-checkHealth"
+        ><code>checkHealth()</code></a
+      >
+      — Check system health
+    </li>
+    <li>
+      <a href="docs.html#api-getStorage" data-route="api-getStorage"><code>getStorage()</code></a> —
+      Get storage adapter
+    </li>
+    <li>
+      <a href="docs.html#api-getIPService" data-route="api-getIPService"
+        ><code>getIPService()</code></a
+      >
+      — Get IP service
+    </li>
+    <li>
+      <a href="docs.html#api-getMetrics" data-route="api-getMetrics"><code>getMetrics()</code></a> —
+      Get metrics collector
+    </li>
+    <li>
+      <a href="docs.html#api-on" data-route="api-on"><code>on()</code></a> — Register event handlers
+    </li>
+  </ul>
+
+  <h3>Rules</h3>
+  <p>Security and rate limiting rules you can apply:</p>
+  <ul>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield"><code>shield()</code></a> — Attack
+      protection
+    </li>
+    <li>
+      <a href="docs.html#rule-bot" data-route="rule-bot"><code>bot()</code></a> — Bot detection
+    </li>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window"><code>window()</code></a> — Sliding
+      window rate limiting
+    </li>
+    <li>
+      <a href="docs.html#rule-bucket" data-route="rule-bucket"><code>bucket()</code></a> — Token
+      bucket rate limiting
+    </li>
+    <li>
+      <a href="docs.html#rule-email" data-route="rule-email"><code>email()</code></a> — Email
+      validation
+    </li>
+    <li>
+      <a href="docs.html#rule-filter" data-route="rule-filter"><code>filter()</code></a> —
+      Expression-based filtering
+    </li>
+  </ul>
+
+  <h3>Framework Adapters</h3>
+  <p>Framework-specific integrations:</p>
+  <ul>
+    <li><a href="docs.html#adapter-express" data-route="adapter-express">Express.js</a></li>
+    <li><a href="docs.html#adapter-next" data-route="adapter-next">Next.js</a></li>
+    <li><a href="docs.html#adapter-nestjs" data-route="adapter-nestjs">Nest.js</a></li>
+    <li><a href="docs.html#adapter-fastify" data-route="adapter-fastify">Fastify</a></li>
+    <li><a href="docs.html#adapter-koa" data-route="adapter-koa">Koa</a></li>
+  </ul>
+</section>

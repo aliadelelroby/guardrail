@@ -1,0 +1,177 @@
+<header class="docs-header">
+  <h1 class="docs-title">Presets</h1>
+  <p class="docs-description">Pre-configured security policies for common use cases.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail provides built-in presets that give you sensible defaults for different use cases. You
+    can use presets as-is or customize them to fit your needs.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, GuardrailPresets } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Use API preset</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">api</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Available Presets</h2>
+
+  <h3>API Preset</h3>
+  <p>Standard protection for API endpoints:</p>
+  <ul>
+    <li>Blocks common web attacks (SQL injection, XSS, etc.)</li>
+    <li>Blocks common bots</li>
+    <li>Rate limit: 100 requests per minute</li>
+    <li>Error handling: FAIL_OPEN</li>
+    <li>Evaluation: SEQUENTIAL</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, GuardrailPresets } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">api</span>());</code></pre>
+  </div>
+
+  <h3>Web Preset</h3>
+  <p>Protection for web applications and browser traffic:</p>
+  <ul>
+    <li>Blocks common web attacks</li>
+    <li>Allows search engine crawlers (Google, Bing, etc.)</li>
+    <li>Rate limit: 1000 requests per minute</li>
+    <li>Error handling: FAIL_OPEN</li>
+    <li>Evaluation: PARALLEL</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">web</span>());</code></pre>
+  </div>
+
+  <h3>Strict Preset</h3>
+  <p>Maximum security for sensitive endpoints:</p>
+  <ul>
+    <li>Aggressive attack blocking</li>
+    <li>Blocks all bots including search engines</li>
+    <li>Strict rate limit: 10 requests per minute</li>
+    <li>Error handling: FAIL_CLOSED (deny on errors)</li>
+    <li>Evaluation: SHORT_CIRCUIT (stop on first deny)</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">strict</span>());</code></pre>
+  </div>
+
+  <h3>AI Preset</h3>
+  <p>Optimized for AI/LLM model protection:</p>
+  <ul>
+    <li>Token bucket rate limiting (ideal for token quotas)</li>
+    <li>Blocks bots to prevent scraping/abuse</li>
+    <li>Moderate shield protection</li>
+    <li>Error handling: FAIL_OPEN</li>
+    <li>Evaluation: SEQUENTIAL</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">ai</span>());</code></pre>
+  </div>
+
+  <h3>Auth Preset</h3>
+  <p>Protection for authentication endpoints:</p>
+  <ul>
+    <li>Shield protection</li>
+    <li>Email validation (blocks disposable emails)</li>
+    <li>Bot detection</li>
+    <li>Strict rate limiting</li>
+    <li>Error handling: FAIL_CLOSED</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">auth</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Customizing Presets</h2>
+  <p>You can extend or modify presets to fit your needs:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, GuardrailPresets, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  ...GuardrailPresets.<span class="fn">api</span>(),
+  <span class="prop">rules</span>: [
+    ...GuardrailPresets.<span class="fn">api</span>().<span class="prop">rules</span>,
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">500</span> }), <span class="cmt">// Add additional rate limit</span>
+  ],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable debug mode</span>
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Zero-Config Usage</h2>
+  <p>
+    If you call <code>guardrail()</code> without any configuration, it automatically uses the
+    <code>api</code> preset:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// These are equivalent:</span>
+<span class="kw">const</span> gr1 = <span class="fn">guardrail</span>();
+<span class="kw">const</span> gr2 = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">api</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Advanced
+      configuration options
+    </li>
+    <li>
+      <a href="docs.html#getting-started" data-route="getting-started">Getting Started</a> — Quick
+      start guide
+    </li>
+  </ul>
+</section>

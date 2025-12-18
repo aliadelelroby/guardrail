@@ -1,0 +1,249 @@
+<header class="docs-header">
+  <h1 class="docs-title">filter()</h1>
+  <p class="docs-description">
+    Expression-based filtering rule for custom allow/deny logic based on request characteristics.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>filter()</code> rule allows you to create custom filtering logic using expressions.
+    You can filter based on IP information, request properties, and more.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, filter } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">deny</span>: [<span class="str">'ip.src.country ne "US"'</span>],
+    }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">filter</span>(config: FilterConfig): FilterConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>allow</code></td>
+        <td><code>string[]</code></td>
+        <td>Expressions that allow requests</td>
+      </tr>
+      <tr>
+        <td><code>deny</code></td>
+        <td><code>string[]</code></td>
+        <td>Expressions that deny requests</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Expression Syntax</h2>
+  <p>Filter expressions support the following operators:</p>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Operator</th>
+        <th>Description</th>
+        <th>Example</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>==</code>, <code>!=</code></td>
+        <td>Equality comparison</td>
+        <td><code>ip.src.vpn == true</code></td>
+      </tr>
+      <tr>
+        <td><code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code></td>
+        <td>Numeric comparison</td>
+        <td><code>request.count > 100</code></td>
+      </tr>
+      <tr>
+        <td><code>in</code></td>
+        <td>Membership check</td>
+        <td><code>ip.src.country in ["US", "CA"]</code></td>
+      </tr>
+      <tr>
+        <td><code>and</code>, <code>or</code>, <code>not</code></td>
+        <td>Logical operators</td>
+        <td><code>vpn == true and proxy == true</code></td>
+      </tr>
+      <tr>
+        <td><code>matches</code></td>
+        <td>Regex matching</td>
+        <td><code>path matches "^/api/"</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Block Non-US Traffic</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">deny</span>: [<span class="str">'ip.src.country ne "US"'</span>],
+})</code></pre>
+  </div>
+
+  <h3>Block VPNs and Proxies</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">deny</span>: [
+    <span class="str">"ip.src.vpn == true"</span>,
+    <span class="str">"ip.src.proxy == true"</span>,
+  ],
+})</code></pre>
+  </div>
+
+  <h3>Allow Specific Countries</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">allow</span>: [<span class="str">'ip.src.country in ["US", "CA", "GB"]'</span>],
+})</code></pre>
+  </div>
+
+  <h3>Complex Expressions</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">deny</span>: [
+    <span class="str">'ip.src.country ne "US" and ip.src.proxy == true'</span>,
+    <span class="str">"ip.src.hosting == true"</span>,
+  ],
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Working with Localhost/Private IPs</h2>
+  <p>
+    Private IP addresses (like <code>127.0.0.1</code>, <code>::1</code>, or <code>localhost</code>)
+    cannot be geolocated to a country. When using country-based filters, you need to handle
+    localhost explicitly.
+  </p>
+
+  <h3>Automatic Development Mode Handling</h3>
+  <p>
+    In development mode (<code>NODE_ENV !== "production"</code>), Guardrail automatically whitelists
+    localhost IPs, so your filter rules will work without modification. This means you can test
+    locally without additional configuration.
+  </p>
+
+  <h3>Explicit Localhost Allowance</h3>
+  <p>
+    If you need to allow localhost in production or want to be explicit, include localhost IPs in
+    your filter expressions:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">allow</span>: [
+    <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>, <span class="cmt">// Allow localhost</span>
+    <span class="str">'ip.src.country eq "US"'</span>, <span class="cmt">// Allow US IPs</span>
+  ],
+})</code></pre>
+  </div>
+
+  <h3>Understanding Private IP Behavior</h3>
+  <p>When a private IP is used:</p>
+  <ul>
+    <li><code>ip.src.country</code> will be <code>undefined</code> (cannot be geolocated)</li>
+    <li>
+      Country-based expressions like <code>ip.src.country eq "US"</code> will evaluate to
+      <code>false</code> for private IPs
+    </li>
+    <li>
+      You must explicitly allow the IP address itself (e.g., <code>ip.src == "127.0.0.1"</code>) if
+      you want to permit localhost
+    </li>
+  </ul>
+
+  <div class="docs-callout">
+    <div class="docs-callout-title">💡 Best Practice</div>
+    <p>
+      In development, rely on automatic localhost whitelisting. In production, explicitly allow
+      localhost only if you have a legitimate use case (e.g., health checks from internal services).
+      For most production APIs, you should block private IPs to prevent SSRF attacks.
+    </p>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Available Properties</h2>
+  <p>You can access the following properties in expressions:</p>
+  <ul>
+    <li><code>ip.src.country</code> — Country code (undefined for private IPs)</li>
+    <li><code>ip.src.vpn</code> — VPN detection</li>
+    <li><code>ip.src.proxy</code> — Proxy detection</li>
+    <li><code>ip.src.hosting</code> — Hosting provider detection</li>
+    <li><code>ip.src.is_private</code> — Whether the IP is private/localhost</li>
+    <li><code>request.path</code> — Request path</li>
+    <li><code>request.method</code> — HTTP method</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation"
+        >IPGeolocation</a
+      >
+      — IP intelligence
+    </li>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield"><code>shield()</code></a> — Attack
+      protection
+    </li>
+  </ul>
+</section>

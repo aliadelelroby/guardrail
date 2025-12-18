@@ -1,0 +1,82 @@
+<header class="docs-header">
+  <h1 class="docs-title">Events</h1>
+  <p class="docs-description">Event system for monitoring and integration.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail emits events throughout the request evaluation process. You can listen to these events
+    for logging, monitoring, and custom integrations.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>gr.<span class="fn">on</span>(<span class="str">"decision.denied"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">"Request denied:"</span>, event.decision);
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Available Events</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>"rule.evaluate"</code></td>
+        <td>Fired when a rule starts evaluation</td>
+      </tr>
+      <tr>
+        <td><code>"rule.allow"</code></td>
+        <td>Fired when a rule allows a request</td>
+      </tr>
+      <tr>
+        <td><code>"rule.deny"</code></td>
+        <td>Fired when a rule denies a request</td>
+      </tr>
+      <tr>
+        <td><code>"decision.allowed"</code></td>
+        <td>Fired when a request is allowed</td>
+      </tr>
+      <tr>
+        <td><code>"decision.denied"</code></td>
+        <td>Fired when a request is denied</td>
+      </tr>
+      <tr>
+        <td><code>"storage.error"</code></td>
+        <td>Fired when storage operations fail</td>
+      </tr>
+      <tr>
+        <td><code>"ip-lookup.error"</code></td>
+        <td>Fired when IP lookup fails</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+  <p>
+    See the <a href="docs.html#api-on" data-route="api-on"><code>on()</code></a> method
+    documentation for detailed examples.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-on" data-route="api-on"><code>on()</code></a> — Register event handlers
+    </li>
+    <li><a href="docs.html#util-logger" data-route="util-logger">Logger</a> — Logging utilities</li>
+  </ul>
+</section>

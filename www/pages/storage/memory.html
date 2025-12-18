@@ -1,0 +1,85 @@
+<header class="docs-header">
+  <h1 class="docs-title">MemoryStorage</h1>
+  <p class="docs-description">
+    In-memory storage adapter for development and single-instance deployments.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>MemoryStorage</code> is the default storage adapter for Guardrail. It uses an in-memory
+    LRU cache and is suitable for development and single-instance deployments.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, MemoryStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">MemoryStorage</span>(<span class="num">10000</span>), <span class="cmt">// Max cache size</span>
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>When to Use</h2>
+  <ul>
+    <li>Development and testing</li>
+    <li>Single-instance deployments</li>
+    <li>Low-traffic applications</li>
+    <li>When Redis is not available</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Limitations</h2>
+  <ul>
+    <li>Data is not shared across multiple instances</li>
+    <li>Data is lost on application restart</li>
+    <li>Not suitable for distributed deployments</li>
+    <li>Memory usage grows with cache size</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Configuration</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>maxSize</code></td>
+        <td><code>number</code></td>
+        <td>Maximum number of cache entries</td>
+        <td><code>10000</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#storage-redis" data-route="storage-redis">RedisStorage</a> — Redis-based
+      storage
+    </li>
+    <li>
+      <a href="docs.html#storage-atomic-redis" data-route="storage-atomic-redis"
+        >AtomicRedisStorage</a
+      >
+      — Atomic Redis operations
+    </li>
+  </ul>
+</section>

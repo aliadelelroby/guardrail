@@ -1,0 +1,63 @@
+<header class="docs-header">
+  <h1 class="docs-title">Metrics</h1>
+  <p class="docs-description">Metrics collection and observability utilities.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail includes a metrics system for monitoring performance and behavior. Metrics are
+    collected when <code>debug: true</code> is enabled.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable metrics</span>
+});
+
+<span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+<span class="kw">const</span> allMetrics = metrics.<span class="fn">getMetrics</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Available Metrics</h2>
+  <ul>
+    <li><code>guardrail.requests.total</code> — Total requests processed</li>
+    <li><code>guardrail.requests.cached</code> — Cached requests</li>
+    <li><code>guardrail.decisions.allowed</code> — Allowed decisions</li>
+    <li><code>guardrail.decisions.denied</code> — Denied decisions</li>
+    <li><code>guardrail.request.duration</code> — Request processing duration</li>
+    <li><code>guardrail.ip_lookup.success</code> — Successful IP lookups</li>
+    <li><code>guardrail.ip_lookup.error</code> — Failed IP lookups</li>
+    <li><code>guardrail.rule.{ruleType}.duration</code> — Rule evaluation duration</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Metric Types</h2>
+  <ul>
+    <li><strong>Counter</strong> — Incrementing values (requests, decisions)</li>
+    <li><strong>Gauge</strong> — Current values (cache size)</li>
+    <li><strong>Histogram</strong> — Distribution of values (durations)</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-getMetrics" data-route="api-getMetrics"><code>getMetrics()</code></a>
+      — Get metrics collector
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Enable debug
+      mode
+    </li>
+  </ul>
+</section>

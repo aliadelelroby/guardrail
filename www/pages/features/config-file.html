@@ -1,0 +1,299 @@
+<header class="docs-header">
+  <h1 class="docs-title">Config File Support</h1>
+  <p class="docs-description">
+    Load Guardrail configurations from JSON files with environment-based overrides and automatic
+    discovery.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail supports loading configurations from JSON files, making it easy to manage different
+    configurations for development, staging, and production environments. Config files support
+    environment-specific overrides and automatic discovery.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { loadConfigFile, createGuardrailFromConfig } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Load config from file</span>
+<span class="kw">const</span> config = <span class="fn">loadConfigFile</span>({ <span class="prop">environment</span>: <span class="str">"production"</span> });
+
+<span class="cmt">// Or create Guardrail directly from config file</span>
+<span class="kw">const</span> guardrail = <span class="kw">await</span> <span class="fn">createGuardrailFromConfig</span>({
+  <span class="prop">path</span>: <span class="str">"guardrail.config.json"</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Config File Format</h2>
+  <p>Create a <code>guardrail.config.json</code> file in your project root:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">json</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>{
+  <span class="prop">"rules"</span>: [
+    {
+      <span class="prop">"type"</span>: <span class="str">"slidingWindow"</span>,
+      <span class="prop">"interval"</span>: <span class="str">"1h"</span>,
+      <span class="prop">"max"</span>: <span class="num">100</span>
+    },
+    {
+      <span class="prop">"type"</span>: <span class="str">"shield"</span>
+    }
+  ],
+  <span class="prop">"mode"</span>: <span class="str">"LIVE"</span>,
+  <span class="prop">"errorHandling"</span>: <span class="str">"FAIL_OPEN"</span>,
+  <span class="prop">"debug"</span>: <span class="kw">false</span>
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Loading Config Files</h2>
+
+  <h3>Automatic Discovery</h3>
+  <p>
+    Guardrail automatically discovers config files in the current working directory. It looks for
+    files in this order:
+  </p>
+  <ol>
+    <li>
+      <code>guardrail.config.{environment}.json</code> (e.g.,
+      <code>guardrail.config.production.json</code>)
+    </li>
+    <li><code>guardrail.config.json</code></li>
+  </ol>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { loadConfigFile } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Automatically finds guardrail.config.json or guardrail.config.{NODE_ENV}.json</span>
+<span class="kw">const</span> config = <span class="fn">loadConfigFile</span>();</code></pre>
+  </div>
+
+  <h3>Explicit Path</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> config = <span class="fn">loadConfigFile</span>({
+  <span class="prop">path</span>: <span class="str">"./config/guardrail.json"</span>,
+});</code></pre>
+  </div>
+
+  <h3>Environment-Specific</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> config = <span class="fn">loadConfigFile</span>({
+  <span class="prop">environment</span>: <span class="str">"production"</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Environment-Based Configs</h2>
+  <p>Create environment-specific config files that override the base configuration. For example:</p>
+
+  <h3>guardrail.config.json (Base)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">json</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>{
+  <span class="prop">"rules"</span>: [
+    {
+      <span class="prop">"type"</span>: <span class="str">"slidingWindow"</span>,
+      <span class="prop">"interval"</span>: <span class="str">"1h"</span>,
+      <span class="prop">"max"</span>: <span class="num">100</span>
+    }
+  ],
+  <span class="prop">"debug"</span>: <span class="kw">true</span>
+}</code></pre>
+  </div>
+
+  <h3>guardrail.config.production.json (Override)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">json</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>{
+  <span class="prop">"debug"</span>: <span class="kw">false</span>,
+  <span class="prop">"rules"</span>: [
+    {
+      <span class="prop">"type"</span>: <span class="str">"slidingWindow"</span>,
+      <span class="prop">"interval"</span>: <span class="str">"1h"</span>,
+      <span class="prop">"max"</span>: <span class="num">1000</span>
+    }
+  ]
+}</code></pre>
+  </div>
+
+  <p>
+    When loading with <code>environment: "production"</code>, the production config will be merged
+    with the base config, with production values taking precedence.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Creating Guardrail from Config</h2>
+  <p>Create a Guardrail instance directly from a config file:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { createGuardrailFromConfig } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Load and create in one step</span>
+<span class="kw">const</span> guardrail = <span class="kw">await</span> <span class="fn">createGuardrailFromConfig</span>({
+  <span class="prop">path</span>: <span class="str">"guardrail.config.json"</span>,
+});
+
+<span class="cmt">// Or use environment-based discovery</span>
+<span class="kw">const</span> guardrail = <span class="kw">await</span> <span class="fn">createGuardrailFromConfig</span>({
+  <span class="prop">environment</span>: process.env.NODE_ENV,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Config Merging</h2>
+  <p>
+    When environment-specific configs are loaded, they are merged with the base config. The merge
+    strategy:
+  </p>
+  <ul>
+    <li>Top-level properties are replaced (not merged)</li>
+    <li>Arrays (like <code>rules</code>) are replaced entirely</li>
+    <li>Nested objects (like <code>whitelist</code>, <code>blacklist</code>) are merged</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">json</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Base config</span>
+{
+  <span class="prop">"whitelist"</span>: {
+    <span class="prop">"ips"</span>: [<span class="str">"1.2.3.4"</span>],
+    <span class="prop">"userIds"</span>: [<span class="str">"admin"</span>]
+  }
+}
+
+<span class="cmt">// Production override</span>
+{
+  <span class="prop">"whitelist"</span>: {
+    <span class="prop">"ips"</span>: [<span class="str">"5.6.7.8"</span>]
+  }
+}
+
+<span class="cmt">// Result: whitelist.ips is replaced, whitelist.userIds is kept</span>
+{
+  <span class="prop">"whitelist"</span>: {
+    <span class="prop">"ips"</span>: [<span class="str">"5.6.7.8"</span>],
+    <span class="prop">"userIds"</span>: [<span class="str">"admin"</span>]
+  }
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Error Handling</h2>
+  <p>
+    If a config file is not found or contains invalid JSON, an error will be thrown with helpful
+    messages:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">try</span> {
+  <span class="kw">const</span> config = <span class="fn">loadConfigFile</span>({ <span class="prop">path</span>: <span class="str">"missing.json"</span> });
+} <span class="kw">catch</span> (error) {
+  <span class="cmt">// Error: Config file not found: missing.json</span>
+  console.<span class="fn">error</span>(error.message);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Use Cases</h2>
+
+  <h3>Environment-Specific Settings</h3>
+  <p>Use different configurations for development and production:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Development: debug enabled, lower limits</span>
+<span class="cmt">// guardrail.config.development.json</span>
+{
+  <span class="prop">"debug"</span>: <span class="kw">true</span>,
+  <span class="prop">"rules"</span>: [{ <span class="prop">"type"</span>: <span class="str">"slidingWindow"</span>, <span class="prop">"max"</span>: <span class="num">10</span> }]
+}
+
+<span class="cmt">// Production: debug disabled, higher limits</span>
+<span class="cmt">// guardrail.config.production.json</span>
+{
+  <span class="prop">"debug"</span>: <span class="kw">false</span>,
+  <span class="prop">"rules"</span>: [{ <span class="prop">"type"</span>: <span class="str">"slidingWindow"</span>, <span class="prop">"max"</span>: <span class="num">1000</span> }]
+}</code></pre>
+  </div>
+
+  <h3>Configuration Management</h3>
+  <p>Store configurations in version control and manage them alongside your code:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Commit config files to git</span>
+git add guardrail.config.json guardrail.config.production.json
+git commit -m <span class="str">"Add Guardrail configurations"</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#feature-validation" data-route="feature-validation"
+        >Configuration Validation</a
+      >
+      — Validate configurations at runtime
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Configuration
+      options reference
+    </li>
+    <li>
+      <a href="docs.html#feature-replay" data-route="feature-replay">Request Replay Tool</a> — Test
+      configurations with replay
+    </li>
+  </ul>
+</section>

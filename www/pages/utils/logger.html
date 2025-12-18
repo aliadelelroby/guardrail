@@ -1,0 +1,72 @@
+<header class="docs-header">
+  <h1 class="docs-title">Logger</h1>
+  <p class="docs-description">Logging utilities for Guardrail.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail includes a built-in logger that provides colored console output. Logging is enabled
+    when <code>debug: true</code> is set in the configuration.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable logging</span>
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Log Levels</h2>
+  <ul>
+    <li><code>debug</code> — Detailed debugging information</li>
+    <li><code>info</code> — Informational messages</li>
+    <li><code>warn</code> — Warning messages</li>
+    <li><code>error</code> — Error messages</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Custom Logger</h2>
+  <p>You can provide a custom logger implementation:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import type</span> { Logger } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> customLogger: Logger = {
+  <span class="fn">debug</span>(message, ...args) {
+    <span class="cmt">// Your logging implementation</span>
+  },
+  <span class="fn">info</span>(message, ...args) {
+    <span class="cmt">// Your logging implementation</span>
+  },
+  <span class="fn">warn</span>(message, ...args) {
+    <span class="cmt">// Your logging implementation</span>
+  },
+  <span class="fn">error</span>(message, ...args) {
+    <span class="cmt">// Your logging implementation</span>
+  },
+};</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Enable debug
+      mode
+    </li>
+    <li><a href="docs.html#util-events" data-route="util-events">Events</a> — Event system</li>
+  </ul>
+</section>

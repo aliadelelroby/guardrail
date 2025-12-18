@@ -1,0 +1,142 @@
+<header class="docs-header">
+  <h1 class="docs-title">bot()</h1>
+  <p class="docs-description">
+    Bot detection rule that identifies and blocks automated traffic while allowing legitimate
+    crawlers.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>bot()</code> rule detects automated traffic by analyzing User-Agent strings and other
+    request characteristics. It can block all bots or allow specific legitimate crawlers.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, bot } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">bot</span>({ <span class="prop">allow</span>: [] }),  <span class="cmt">// Block all bots</span>
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">bot</span>(config?: BotDetectionRuleConfig): BotDetectionRuleConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>allow</code></td>
+        <td><code>string[]</code></td>
+        <td>List of bot names to allow (e.g., "Googlebot", "Bingbot")</td>
+        <td><code>[]</code></td>
+      </tr>
+      <tr>
+        <td><code>block</code></td>
+        <td><code>string[]</code></td>
+        <td>List of bot names to explicitly block</td>
+        <td><code>[]</code></td>
+      </tr>
+      <tr>
+        <td><code>mode</code></td>
+        <td><code>"LIVE" | "DRY_RUN"</code></td>
+        <td>Operation mode</td>
+        <td><code>"LIVE"</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Block All Bots</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">bot</span>({ <span class="prop">allow</span>: [] })  <span class="cmt">// Block all bots</span></code></pre>
+  </div>
+
+  <h3>Allow Specific Crawlers</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">bot</span>({
+  <span class="prop">allow</span>: [
+    <span class="str">"Googlebot"</span>,
+    <span class="str">"Bingbot"</span>,
+    <span class="str">"Slackbot"</span>,
+    <span class="str">"Twitterbot"</span>,
+  ],
+})</code></pre>
+  </div>
+
+  <h3>Handling Bot Detection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>() && decision.reason.<span class="fn">isBot</span>()) {
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Bot detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Detected Bots</h2>
+  <p>Guardrail detects over 50 known bots including:</p>
+  <ul>
+    <li>Search engine crawlers (Googlebot, Bingbot, etc.)</li>
+    <li>Social media bots (Twitterbot, FacebookExternalHit, etc.)</li>
+    <li>Monitoring tools (Pingdom, UptimeRobot, etc.)</li>
+    <li>Scraping tools (Scrapy, curl, wget, etc.)</li>
+    <li>And many more...</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield"><code>shield()</code></a> — Attack
+      protection
+    </li>
+    <li>
+      <a href="docs.html#rule-filter" data-route="rule-filter"><code>filter()</code></a> —
+      Expression-based filtering
+    </li>
+  </ul>
+</section>

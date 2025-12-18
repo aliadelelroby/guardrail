@@ -1,0 +1,96 @@
+<header class="docs-header">
+  <h1 class="docs-title">VPNProxyDetection</h1>
+  <p class="docs-description">Advanced VPN and proxy detection service.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>VPNProxyDetection</code> provides comprehensive VPN and proxy detection using multiple
+    heuristics including ASN matching, known provider lists, and behavioral analysis.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { VPNProxyDetection } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> vpnDetector = <span class="kw">new</span> <span class="fn">VPNProxyDetection</span>({
+  <span class="prop">enableHeuristicDetection</span>: <span class="kw">true</span>,
+  <span class="prop">confidenceThreshold</span>: <span class="num">50</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Features</h2>
+  <ul>
+    <li>Detects 100+ known VPN providers</li>
+    <li>Detects proxy and CDN providers</li>
+    <li>Heuristic detection based on ASN patterns</li>
+    <li>Configurable confidence thresholds</li>
+    <li>Custom VPN provider lists</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+
+  <h3>Standalone Detection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> vpnDetector = <span class="kw">new</span> <span class="fn">VPNProxyDetection</span>();
+
+<span class="kw">const</span> result = <span class="kw">await</span> vpnDetector.<span class="fn">check</span>(<span class="str">"1.2.3.4"</span>, {
+  <span class="prop">asn</span>: <span class="num">12345</span>,
+  <span class="prop">org</span>: <span class="str">"NordVPN"</span>,
+});
+
+<span class="kw">if</span> (result.isVpn) {
+  console.<span class="fn">log</span>(<span class="str">"VPN detected via:"</span>, result.method);
+}</code></pre>
+  </div>
+
+  <h3>Configuration</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> vpnDetector = <span class="kw">new</span> <span class="fn">VPNProxyDetection</span>({
+  <span class="prop">enableHeuristicDetection</span>: <span class="kw">true</span>,
+  <span class="prop">confidenceThreshold</span>: <span class="num">50</span>, <span class="cmt">// 0-100</span>
+  <span class="prop">customVPNProviders</span>: [<span class="str">"my-internal-vpn"</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Detection Methods</h2>
+  <ul>
+    <li><strong>Known Provider Matching</strong> — Matches against 100+ known VPN providers</li>
+    <li><strong>ASN Analysis</strong> — Analyzes ASN names for VPN/proxy indicators</li>
+    <li><strong>Heuristic Detection</strong> — Pattern matching on organization names</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation"
+        >IPGeolocation</a
+      >
+      — IP geolocation service
+    </li>
+    <li>
+      <a href="docs.html#rule-filter" data-route="rule-filter"><code>filter()</code></a> — Filter
+      rules
+    </li>
+  </ul>
+</section>

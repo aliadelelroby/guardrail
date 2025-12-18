@@ -1,0 +1,87 @@
+<header class="docs-header">
+  <h1 class="docs-title">CircuitBreaker</h1>
+  <p class="docs-description">Circuit breaker pattern for resilient operations.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>CircuitBreaker</code> implements the circuit breaker pattern to prevent cascading failures
+    in distributed systems. Guardrail uses circuit breakers internally for storage and IP service
+    operations.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { CircuitBreaker } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> breaker = <span class="kw">new</span> <span class="fn">CircuitBreaker</span>({
+  <span class="prop">failureThreshold</span>: <span class="num">5</span>,
+  <span class="prop">resetTimeout</span>: <span class="num">60000</span>,
+});
+
+<span class="kw">try</span> {
+  <span class="kw">await</span> breaker.<span class="fn">execute</span>(<span class="kw">async</span> () => {
+    <span class="cmt">// Your operation</span>
+  });
+} <span class="kw">catch</span> (error) {
+  <span class="cmt">// Circuit is open or operation failed</span>
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Circuit States</h2>
+  <ul>
+    <li><strong>CLOSED</strong> — Normal operation, requests pass through</li>
+    <li><strong>OPEN</strong> — Circuit is open, requests fail immediately</li>
+    <li><strong>HALF_OPEN</strong> — Testing if service has recovered</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Configuration</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>failureThreshold</code></td>
+        <td><code>number</code></td>
+        <td>Number of failures before opening circuit</td>
+        <td><code>5</code></td>
+      </tr>
+      <tr>
+        <td><code>resetTimeout</code></td>
+        <td><code>number</code></td>
+        <td>Time in ms before attempting half-open</td>
+        <td><code>60000</code></td>
+      </tr>
+      <tr>
+        <td><code>successThreshold</code></td>
+        <td><code>number</code></td>
+        <td>Successes needed in half-open to close</td>
+        <td><code>2</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Guardrail configuration
+    </li>
+  </ul>
+</section>

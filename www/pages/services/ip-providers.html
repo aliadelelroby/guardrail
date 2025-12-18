@@ -1,0 +1,127 @@
+<header class="docs-header">
+  <h1 class="docs-title">IP Providers</h1>
+  <p class="docs-description">Premium IP intelligence providers for production deployments.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    For production environments, Guardrail supports premium IP intelligence providers that offer
+    higher accuracy, better rate limits, and additional features like fraud scoring.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>MaxMind GeoIP2</h2>
+  <p>Industry-standard IP geolocation with high accuracy:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, MaxMindProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">MaxMindProvider</span>({
+    <span class="prop">accountId</span>: process.env.MAXMIND_ACCOUNT_ID,
+    <span class="prop">licenseKey</span>: process.env.MAXMIND_LICENSE_KEY,
+    <span class="prop">serviceType</span>: <span class="str">"insights"</span>, <span class="cmt">// "country", "city", or "insights"</span>
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+
+  <h3>Service Types</h3>
+  <ul>
+    <li><code>"country"</code> — Country-level data only</li>
+    <li><code>"city"</code> — City-level data</li>
+    <li><code>"insights"</code> — Full insights including VPN/proxy detection</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>IPinfo.io</h2>
+  <p>Simple and reliable IP geolocation service:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, IPinfoProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">IPinfoProvider</span>({
+    <span class="prop">token</span>: process.env.IPINFO_TOKEN,
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>IPQualityScore</h2>
+  <p>Advanced fraud detection and IP scoring:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, IPQualityScoreProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">IPQualityScoreProvider</span>({
+    <span class="prop">apiKey</span>: process.env.IPQS_API_KEY,
+    <span class="prop">enableFraudScoring</span>: <span class="kw">true</span>,
+    <span class="prop">strictness</span>: <span class="num">2</span>,
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Fallback Strategy</h2>
+  <p>Chain multiple providers for high availability:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> {
+  guardrail,
+  FallbackIPProvider,
+  MaxMindProvider,
+  IPinfoProvider,
+} <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">FallbackIPProvider</span>([
+    <span class="kw">new</span> <span class="fn">MaxMindProvider</span>({ <span class="cmt">/* ... */</span> }),
+    <span class="kw">new</span> <span class="fn">IPinfoProvider</span>({ <span class="cmt">/* ... */</span> }),
+  ]),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation"
+        >IPGeolocation</a
+      >
+      — Default IP service
+    </li>
+    <li>
+      <a href="docs.html#api-getIPService" data-route="api-getIPService"
+        ><code>getIPService()</code></a
+      >
+      — Get IP service instance
+    </li>
+  </ul>
+</section>

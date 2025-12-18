@@ -1,0 +1,104 @@
+<header class="docs-header">
+  <h1 class="docs-title">addRule()</h1>
+  <p class="docs-description">
+    Note: <code>addRule()</code> is a private method and is not part of the public API. Rules should
+    be added during Guardrail initialization.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>addRule()</code> is an internal method used by Guardrail to add rules during
+    initialization. It is not exposed as a public API method.
+  </p>
+  <p>
+    To add rules to a Guardrail instance, include them in the configuration when creating the
+    instance:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Add rules during initialization</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Adding Rules</h2>
+  <p>Rules are configured when creating a Guardrail instance:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">bot</span>({ <span class="prop">allow</span>: [] }),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+    <span class="fn">email</span>({ <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>] }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Why Rules Are Not Dynamic</h2>
+  <p>Guardrail is designed with immutable rule sets for several reasons:</p>
+  <ul>
+    <li><strong>Performance</strong> — Rules are compiled and optimized at initialization</li>
+    <li><strong>Consistency</strong> — Ensures all requests are evaluated with the same rules</li>
+    <li><strong>Thread Safety</strong> — Avoids race conditions in concurrent environments</li>
+    <li><strong>Predictability</strong> — Makes debugging and testing easier</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Creating Multiple Instances</h2>
+  <p>If you need different rule sets, create multiple Guardrail instances:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Strict protection for sensitive endpoints</span>
+<span class="kw">const</span> strictGr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="fn">shield</span>(), <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">10</span> })],
+});
+
+<span class="cmt">// Relaxed protection for public endpoints</span>
+<span class="kw">const</span> publicGr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">1000</span> })],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance with rules
+    </li>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield">Shield Rule</a> — Attack protection
+    </li>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window">Rate Limiting</a> — Rate limiting
+      rules
+    </li>
+  </ul>
+</section>

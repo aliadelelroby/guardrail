@@ -1,0 +1,104 @@
+<header class="docs-header">
+  <h1 class="docs-title">Getting Started</h1>
+  <p class="docs-description">Get up and running with Guardrail in minutes.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Installation</h2>
+  <p>Install Guardrail using npm or your preferred package manager:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>npm install @guardrail-dev/core</code></pre>
+  </div>
+
+  <p>For Redis storage support in distributed deployments:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>npm install @guardrail-dev/core ioredis</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Quick Start</h2>
+  <p>
+    Guardrail is designed to be developer-first. You can start protecting your app with zero
+    configuration:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// 1. Zero-config (uses API preset + auto-detects Redis)</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>();
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Forbidden"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"OK"</span>);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Development Mode & Localhost</h2>
+  <p>
+    When developing locally, Guardrail automatically handles localhost requests. In development mode
+    (<code>NODE_ENV !== "production"</code>), requests from <code>127.0.0.1</code>,
+    <code>::1</code>, or <code>localhost</code> are automatically allowed, so you can test your APIs
+    without additional configuration.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Works automatically in development - no localhost configuration needed!</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">allow</span>: [<span class="str">'ip.src.country eq "US"'</span>], <span class="cmt">// Localhost works automatically</span>
+    }),
+  ],
+});</code></pre>
+  </div>
+
+  <p>
+    For more details on localhost handling and production configuration, see the
+    <a href="docs.html#adapter-nestjs" data-route="adapter-nestjs">Nest.js adapter documentation</a>
+    or <a href="docs.html#rule-filter" data-route="rule-filter">filter rules documentation</a>.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Next Steps</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"
+        >Learn about <code>guardrail()</code></a
+      >
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"
+        >Learn about <code>protect()</code></a
+      >
+    </li>
+    <li><a href="docs.html#rule-shield" data-route="rule-shield">Add attack protection</a></li>
+    <li><a href="docs.html#rule-window" data-route="rule-window">Add rate limiting</a></li>
+    <li>
+      <a href="docs.html#adapter-express" data-route="adapter-express">Framework integration</a>
+    </li>
+  </ul>
+</section>

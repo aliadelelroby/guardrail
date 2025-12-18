@@ -1,0 +1,410 @@
+<header class="docs-header">
+  <h1 class="docs-title">Quota System</h1>
+  <p class="docs-description">
+    Manage user quotas and subscriptions for AI applications, APIs, and SaaS products with burst
+    limits, daily caps, and monthly limits using dynamic values from your database.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Quota system provides a high-level API for managing user quotas and subscriptions,
+    especially useful for AI applications, API rate limiting, and SaaS products. It supports stacked
+    limits (burst, daily, monthly) and can resolve quota values dynamically from your database or
+    subscription metadata.
+  </p>
+  <p>Perfect for use cases like:</p>
+  <ul>
+    <li><strong>AI API Quotas</strong> — Limit token usage per user/subscription tier</li>
+    <li><strong>SaaS Subscriptions</strong> — Enforce daily/monthly limits based on plan</li>
+    <li><strong>API Rate Limiting</strong> — Protect endpoints with tiered access</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { Quota } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Controller</span>(<span class="str">"api"</span>)
+<span class="kw">export class</span> <span class="fn">ApiController</span> {
+  @<span class="fn">Post</span>(<span class="str">"generate"</span>)
+  @<span class="fn">Quota</span>({
+    <span class="prop">burst</span>: <span class="num">5</span>,
+    <span class="prop">daily</span>: <span class="str">"subscription.dailyQuota"</span>,
+    <span class="prop">monthly</span>: <span class="str">"subscription.monthlyCap"</span>,
+  })
+  <span class="kw">async</span> <span class="fn">generate</span>(@<span class="fn">Result</span>() decision: Decision) {
+    <span class="kw">return</span> { <span class="prop">id</span>: decision.id };
+  }
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Quota Configuration</h2>
+  <p>The <code>Quota</code> decorator accepts a <code>QuotaConfig</code> object:</p>
+
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>burst</code></td>
+        <td><code>DynamicValue&lt;number&gt;</code></td>
+        <td>Short-term burst limit (e.g., 5 requests per minute)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>burstInterval</code></td>
+        <td><code>string</code></td>
+        <td>Burst interval (default: "1m")</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>daily</code></td>
+        <td><code>DynamicValue&lt;number&gt;</code></td>
+        <td>Daily quota (e.g., 100 requests per day)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>monthly</code></td>
+        <td><code>DynamicValue&lt;number&gt;</code></td>
+        <td>Monthly quota (e.g., 1000 requests per month)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>by</code></td>
+        <td><code>string[]</code></td>
+        <td>Tracking characteristics (default: ["userId"])</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Dynamic Values</h2>
+  <p>
+    Quota limits can be static numbers or dynamic values resolved from your database or request
+    metadata. Dynamic values support three formats:
+  </p>
+
+  <h3>1. Static Values</h3>
+  <p>Use a simple number for fixed quotas:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Quota</span>({
+  <span class="prop">burst</span>: <span class="num">5</span>,        <span class="cmt">// Static: 5 requests per minute</span>
+  <span class="prop">daily</span>: <span class="num">100</span>,      <span class="cmt">// Static: 100 requests per day</span>
+  <span class="prop">monthly</span>: <span class="num">1000</span>,    <span class="cmt">// Static: 1000 requests per month</span>
+})</code></pre>
+  </div>
+
+  <h3>2. Path Strings</h3>
+  <p>
+    Use dot-notation paths to resolve values from metadata, options, or characteristics. This is
+    ideal for subscription-based quotas:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Quota</span>({
+  <span class="prop">burst</span>: <span class="num">5</span>,
+  <span class="prop">daily</span>: <span class="str">"subscription.dailyQuota"</span>,    <span class="cmt">// From metadata</span>
+  <span class="prop">monthly</span>: <span class="str">"subscription.monthlyCap"</span>,  <span class="cmt">// From metadata</span>
+})</code></pre>
+  </div>
+
+  <p>The resolver looks for values in this order:</p>
+  <ol>
+    <li><code>metadata.subscription.dailyQuota</code></li>
+    <li><code>options.subscription.dailyQuota</code></li>
+    <li><code>characteristics.subscription.dailyQuota</code></li>
+  </ol>
+
+  <h3>3. Function Resolvers</h3>
+  <p>Use async functions for complex logic:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Quota</span>({
+  <span class="prop">daily</span>: <span class="kw">async</span> (context) => {
+    <span class="kw">const</span> userId = context.characteristics.userId;
+    <span class="kw">const</span> subscription = <span class="kw">await</span> db.subscriptions.<span class="fn">findOne</span>({ userId });
+    <span class="kw">return</span> subscription?.dailyQuota ?? <span class="num">0</span>;
+  },
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Stacked Limits</h2>
+  <p>
+    Quota rules are stacked, meaning all limits must be satisfied. A request is denied if it exceeds
+    any limit:
+  </p>
+  <ul>
+    <li><strong>Burst limit</strong> — Prevents rapid-fire requests</li>
+    <li><strong>Daily limit</strong> — Prevents daily quota exhaustion</li>
+    <li><strong>Monthly limit</strong> — Prevents monthly quota exhaustion</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// All three limits are enforced</span>
+@<span class="fn">Quota</span>({
+  <span class="prop">burst</span>: <span class="num">5</span>,        <span class="cmt">// Max 5 requests per minute</span>
+  <span class="prop">daily</span>: <span class="num">100</span>,      <span class="cmt">// Max 100 requests per day</span>
+  <span class="prop">monthly</span>: <span class="num">1000</span>,    <span class="cmt">// Max 1000 requests per month</span>
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Basic Quota</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Controller</span>(<span class="str">"api"</span>)
+<span class="kw">export class</span> <span class="fn">ApiController</span> {
+  @<span class="fn">Post</span>(<span class="str">"generate"</span>)
+  @<span class="fn">Quota</span>({
+    <span class="prop">burst</span>: <span class="num">5</span>,
+    <span class="prop">daily</span>: <span class="num">100</span>,
+  })
+  <span class="kw">async</span> <span class="fn">generate</span>() {
+    <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+  }
+}</code></pre>
+  </div>
+
+  <h3>Subscription-Based Quotas</h3>
+  <p>Resolve quotas from subscription metadata:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Controller</span>(<span class="str">"api"</span>)
+<span class="kw">export class</span> <span class="fn">ApiController</span> {
+  @<span class="fn">Post</span>(<span class="str">"generate"</span>)
+  @<span class="fn">Quota</span>({
+    <span class="prop">burst</span>: <span class="num">5</span>,
+    <span class="prop">daily</span>: <span class="str">"subscription.dailyQuota"</span>,
+    <span class="prop">monthly</span>: <span class="str">"subscription.monthlyCap"</span>,
+  })
+  <span class="kw">async</span> <span class="fn">generate</span>(@<span class="fn">Result</span>() decision: Decision) {
+    <span class="cmt">// Access decision for quota information</span>
+    <span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+      <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+      <span class="kw">return</span> Response.<span class="fn">json</span>(
+        { <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>, remaining },
+        { <span class="prop">status</span>: <span class="num">429</span> }
+      );
+    }
+    <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+  }
+}</code></pre>
+  </div>
+
+  <h3>Providing Metadata</h3>
+  <p>
+    In NestJS, provide subscription metadata using the <code>GuardrailOptions</code> decorator or
+    metadata extractor:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { GuardrailModule } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+<span class="cmt">// In your module configuration</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">metadataExtractor</span>: <span class="kw">async</span> (req) => {
+    <span class="kw">const</span> userId = req.user?.id;
+    <span class="kw">if</span> (!userId) <span class="kw">return</span> <span class="kw">undefined</span>;
+
+    <span class="kw">const</span> subscription = <span class="kw">await</span> db.subscriptions.<span class="fn">findOne</span>({ userId });
+    <span class="kw">return</span> {
+      <span class="prop">subscription</span>: {
+        <span class="prop">dailyQuota</span>: subscription?.dailyQuota ?? <span class="num">0</span>,
+        <span class="prop">monthlyCap</span>: subscription?.monthlyCap ?? <span class="num">0</span>,
+      },
+    };
+  },
+})</code></pre>
+  </div>
+
+  <h3>Custom Burst Interval</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Quota</span>({
+  <span class="prop">burst</span>: <span class="num">10</span>,
+  <span class="prop">burstInterval</span>: <span class="str">"5m"</span>, <span class="cmt">// 10 requests per 5 minutes</span>
+  <span class="prop">daily</span>: <span class="num">100</span>,
+})</code></pre>
+  </div>
+
+  <h3>Function-Based Resolver</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Quota</span>({
+  <span class="prop">daily</span>: <span class="kw">async</span> (context) => {
+    <span class="kw">const</span> userId = context.characteristics.userId;
+    <span class="kw">if</span> (!userId) <span class="kw">return</span> <span class="num">0</span>;
+
+    <span class="kw">const</span> user = <span class="kw">await</span> db.users.<span class="fn">findOne</span>({ <span class="prop">id</span>: userId });
+    <span class="kw">const</span> tier = user?.subscriptionTier ?? <span class="str">"free"</span>;
+
+    <span class="kw">const</span> limits = {
+      <span class="prop">free</span>: <span class="num">10</span>,
+      <span class="prop">pro</span>: <span class="num">100</span>,
+      <span class="prop">enterprise</span>: <span class="num">1000</span>,
+    };
+
+    <span class="kw">return</span> limits[tier] ?? <span class="num">0</span>;
+  },
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Handling Quota Exceeded</h2>
+  <p>Check if a request was denied due to quota limits:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>@<span class="fn">Post</span>(<span class="str">"generate"</span>)
+@<span class="fn">Quota</span>({ <span class="prop">daily</span>: <span class="str">"subscription.dailyQuota"</span> })
+<span class="kw">async</span> <span class="fn">generate</span>(@<span class="fn">Result</span>() decision: Decision) {
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>() && decision.reason.<span class="fn">isQuota</span>()) {
+    <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+    <span class="kw">return</span> Response.<span class="fn">json</span>(
+      {
+        <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>,
+        <span class="prop">remaining</span>,
+        <span class="prop">message</span>: <span class="str">"You have reached your daily quota limit"</span>,
+      },
+      { <span class="prop">status</span>: <span class="num">429</span> }
+    );
+  }
+
+  <span class="cmt">// Process request</span>
+  <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>How It Works</h2>
+  <p>The <code>@Quota</code> decorator creates multiple sliding window rate limiting rules:</p>
+  <ul>
+    <li>
+      <strong>Burst rule</strong> —
+      <code>window({ max: burst, interval: burstInterval || "1m" })</code>
+    </li>
+    <li><strong>Daily rule</strong> — <code>window({ max: daily, interval: "1d" })</code></li>
+    <li><strong>Monthly rule</strong> — <code>window({ max: monthly, interval: "1mo" })</code></li>
+  </ul>
+  <p>All rules are evaluated, and if any rule denies the request, the entire quota check fails.</p>
+</section>
+
+<section class="docs-section">
+  <h2>Framework Support</h2>
+  <p>The Quota system is available in all framework adapters:</p>
+
+  <h3>NestJS (Decorator)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { Quota } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Quota</span>({ <span class="prop">daily</span>: <span class="num">100</span> })</code></pre>
+  </div>
+
+  <h3>Next.js</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailNext } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="kw">export const</span> middleware = guardrailNext.<span class="fn">quota</span>({
+  <span class="prop">daily</span>: <span class="num">100</span>,
+}).<span class="fn">middleware</span>();</code></pre>
+  </div>
+
+  <h3>Express</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailExpress } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/express"</span>;
+
+app.<span class="fn">use</span>(guardrailExpress.<span class="fn">quota</span>({ <span class="prop">daily</span>: <span class="num">100</span> }));</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#adapter-nestjs" data-route="adapter-nestjs">Nest.js Integration</a> —
+      Framework adapter with <code>@Quota()</code> decorator
+    </li>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window"><code>window()</code></a> — Sliding
+      window rate limiting (used by Quota)
+    </li>
+    <li>
+      <a href="docs.html#rule-bucket" data-route="rule-bucket"><code>bucket()</code></a> — Token
+      bucket rate limiting
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

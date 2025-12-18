@@ -1,0 +1,86 @@
+<header class="docs-header">
+  <h1 class="docs-title">Fastify Adapter</h1>
+  <p class="docs-description">Integrate Guardrail with Fastify applications.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Fastify adapter provides hooks that integrate Guardrail with Fastify applications using the
+    preHandler hook.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> Fastify <span class="kw">from</span> <span class="str">"fastify"</span>;
+<span class="kw">import</span> { guardrailFastify } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/fastify"</span>;
+
+<span class="kw">const</span> fastify = <span class="fn">Fastify</span>();
+
+<span class="cmt">// Global protection</span>
+fastify.<span class="fn">addHook</span>(<span class="str">"preHandler"</span>, <span class="fn">guardrailFastify</span>.<span class="fn">api</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+
+  <h3>Global Hook</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>fastify.<span class="fn">addHook</span>(<span class="str">"preHandler"</span>, <span class="fn">guardrailFastify</span>.<span class="fn">api</span>());</code></pre>
+  </div>
+
+  <h3>Route-Specific Protection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>fastify.<span class="fn">post</span>(
+  <span class="str">"/login"</span>,
+  {
+    <span class="prop">preHandler</span>: <span class="fn">guardrailFastify</span>.<span class="fn">auth</span>(),
+  },
+  <span class="kw">async</span> (req, reply) => {
+    <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+  }
+);</code></pre>
+  </div>
+
+  <h3>Custom Configuration</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailFastify, shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/fastify"</span>;
+
+fastify.<span class="fn">addHook</span>(
+  <span class="str">"preHandler"</span>,
+  <span class="fn">guardrailFastify</span>({
+    <span class="prop">rules</span>: [
+      <span class="fn">shield</span>(),
+      <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+    ],
+  })
+);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#adapter-express" data-route="adapter-express">Express.js</a> — Express
+      adapter
+    </li>
+    <li><a href="docs.html#adapter-koa" data-route="adapter-koa">Koa</a> — Koa adapter</li>
+  </ul>
+</section>

@@ -1,0 +1,91 @@
+<header class="docs-header">
+  <h1 class="docs-title">AtomicRedisStorage</h1>
+  <p class="docs-description">Atomic Redis operations for high-concurrency rate limiting.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>AtomicRedisStorage</code> provides atomic operations for Redis, ensuring thread-safe rate
+    limiting in high-concurrency scenarios. It's the recommended storage backend for production
+    deployments.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, AtomicRedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">AtomicRedisStorage</span>({
+    <span class="prop">redis</span>: process.env.REDIS_URL,
+    <span class="prop">keyPrefix</span>: <span class="str">"guardrail:"</span>,
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>When to Use</h2>
+  <ul>
+    <li>High-concurrency applications</li>
+    <li>Production deployments</li>
+    <li>When you need guaranteed atomicity</li>
+    <li>Multi-instance deployments with high traffic</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Features</h2>
+  <ul>
+    <li>Atomic increment operations</li>
+    <li>Thread-safe rate limiting</li>
+    <li>Lua script execution for complex operations</li>
+    <li>Configurable key prefixing</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Configuration</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>redis</code></td>
+        <td><code>string | Redis</code></td>
+        <td>Redis connection URL or instance</td>
+        <td>Required</td>
+      </tr>
+      <tr>
+        <td><code>keyPrefix</code></td>
+        <td><code>string</code></td>
+        <td>Prefix for all storage keys</td>
+        <td><code>"guardrail:"</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#storage-memory" data-route="storage-memory">MemoryStorage</a> — In-memory
+      storage
+    </li>
+    <li>
+      <a href="docs.html#storage-redis" data-route="storage-redis">RedisStorage</a> — Basic Redis
+      storage
+    </li>
+  </ul>
+</section>

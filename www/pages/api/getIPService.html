@@ -1,0 +1,105 @@
+<header class="docs-header">
+  <h1 class="docs-title">getIPService()</h1>
+  <p class="docs-description">Gets the IP geolocation service used by this Guardrail instance.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>getIPService()</code> method returns the IP geolocation service instance that
+    Guardrail is using. This is useful for direct IP lookups or debugging.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> ipService = gr.<span class="fn">getIPService</span>();
+
+<span class="cmt">// Perform direct IP lookup</span>
+<span class="kw">const</span> ipInfo = <span class="kw">await</span> ipService.<span class="fn">lookup</span>(<span class="str">"1.2.3.4"</span>);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">getIPService</span>(): IPGeolocationService</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>
+    Returns the <code>IPGeolocationService</code> instance being used by this Guardrail instance.
+    This could be:
+  </p>
+  <ul>
+    <li><code>IPGeolocation</code> — Default IP geolocation service</li>
+    <li><code>MaxMindProvider</code> — MaxMind GeoIP2 provider</li>
+    <li><code>IPinfoProvider</code> — IPinfo.io provider</li>
+    <li><code>FallbackIPProvider</code> — Fallback provider chain</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Direct IP Lookup</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> ipService = gr.<span class="fn">getIPService</span>();
+
+<span class="cmt">// Lookup IP information directly</span>
+<span class="kw">const</span> ipInfo = <span class="kw">await</span> ipService.<span class="fn">lookup</span>(<span class="str">"1.2.3.4"</span>);
+
+<span class="kw">if</span> (ipInfo.country) {
+  console.<span class="fn">log</span>(<span class="str">`Country: </span>${ipInfo.country}<span class="str">`</span>);
+}</code></pre>
+  </div>
+
+  <h3>Check Service Type</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { MaxMindProvider, IPinfoProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> ipService = gr.<span class="fn">getIPService</span>();
+
+<span class="kw">if</span> (ipService <span class="kw">instanceof</span> MaxMindProvider) {
+  console.<span class="fn">log</span>(<span class="str">"Using MaxMind provider"</span>);
+} <span class="kw">else if</span> (ipService <span class="kw">instanceof</span> IPinfoProvider) {
+  console.<span class="fn">log</span>(<span class="str">"Using IPinfo provider"</span>);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation"
+        >IPGeolocation</a
+      >
+      — IP geolocation service
+    </li>
+    <li>
+      <a href="docs.html#service-ip-providers" data-route="service-ip-providers">IP Providers</a> —
+      Premium IP providers
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+  </ul>
+</section>

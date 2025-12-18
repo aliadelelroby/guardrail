@@ -1,0 +1,82 @@
+<header class="docs-header">
+  <h1 class="docs-title">IPGeolocation</h1>
+  <p class="docs-description">IP geolocation service with free API support and caching.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>IPGeolocation</code> is the default IP geolocation service used by Guardrail. It provides
+    country, region, city, and network information for IP addresses using free APIs with automatic
+    fallback and caching.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, IPGeolocation } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">IPGeolocation</span>(storage, <span class="num">24</span> * <span class="num">60</span> * <span class="num">60</span> * <span class="num">1000</span>), <span class="cmt">// 24h cache</span>
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Features</h2>
+  <ul>
+    <li>Automatic fallback between multiple free APIs</li>
+    <li>Built-in caching to reduce API calls</li>
+    <li>Distributed caching support via storage adapter</li>
+    <li>VPN and proxy detection</li>
+    <li>ASN and organization information</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Free API Providers</h2>
+  <p>The default service uses these free APIs with automatic fallback:</p>
+  <ul>
+    <li><strong>ipapi.co</strong> — 1000 requests/day (free tier)</li>
+    <li><strong>ip-api.com</strong> — 45 requests/minute (free tier)</li>
+  </ul>
+  <p>
+    <strong>Note:</strong> For production, consider using premium providers like MaxMind or IPinfo
+    for higher rate limits and accuracy.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> ipService = gr.<span class="fn">getIPService</span>();
+<span class="kw">const</span> ipInfo = <span class="kw">await</span> ipService.<span class="fn">lookup</span>(<span class="str">"1.2.3.4"</span>);
+
+console.<span class="fn">log</span>(ipInfo.country); <span class="cmt">// "US"</span>
+console.<span class="fn">log</span>(ipInfo.countryName); <span class="cmt">// "United States"</span>
+console.<span class="fn">log</span>(ipInfo.city); <span class="cmt">// "San Francisco"</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#service-ip-providers" data-route="service-ip-providers">IP Providers</a> —
+      Premium IP providers
+    </li>
+    <li>
+      <a href="docs.html#api-getIPService" data-route="api-getIPService"
+        ><code>getIPService()</code></a
+      >
+      — Get IP service instance
+    </li>
+  </ul>
+</section>

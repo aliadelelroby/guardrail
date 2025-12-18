@@ -1,0 +1,215 @@
+<header class="docs-header">
+  <h1 class="docs-title">guardrail()</h1>
+  <p class="docs-description">Creates a new Guardrail instance with the provided configuration.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>guardrail()</code> function is the main entry point for creating a Guardrail instance.
+    It accepts a configuration object that defines rules, storage, IP services, and other options.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+<span class="kw">import</span> { shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">guardrail</span>(config: GuardrailConfig): Guardrail</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>config</code></td>
+        <td><code>GuardrailConfig</code></td>
+        <td>Configuration object for the Guardrail instance</td>
+        <td>Yes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>GuardrailConfig Properties</h3>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>rules</code></td>
+        <td><code>GuardrailRule[]</code></td>
+        <td>Array of security and rate limiting rules</td>
+        <td>API preset rules</td>
+      </tr>
+      <tr>
+        <td><code>storage</code></td>
+        <td><code>StorageAdapter</code></td>
+        <td>Storage backend for rate limiting data</td>
+        <td>Auto-discovered or MemoryStorage</td>
+      </tr>
+      <tr>
+        <td><code>ipService</code></td>
+        <td><code>IPGeolocationService</code></td>
+        <td>IP geolocation service</td>
+        <td>IPGeolocation (default)</td>
+      </tr>
+      <tr>
+        <td><code>errorHandling</code></td>
+        <td><code>"FAIL_OPEN" | "FAIL_CLOSED"</code></td>
+        <td>Error handling mode</td>
+        <td><code>"FAIL_OPEN"</code></td>
+      </tr>
+      <tr>
+        <td><code>evaluationStrategy</code></td>
+        <td><code>"SEQUENTIAL" | "PARALLEL" | "SHORT_CIRCUIT"</code></td>
+        <td>Rule evaluation strategy</td>
+        <td><code>"SEQUENTIAL"</code></td>
+      </tr>
+      <tr>
+        <td><code>debug</code></td>
+        <td><code>boolean</code></td>
+        <td>Enable debug mode and metrics</td>
+        <td><code>false</code></td>
+      </tr>
+      <tr>
+        <td><code>whitelist</code></td>
+        <td><code>WhitelistConfig</code></td>
+        <td>Whitelist configuration</td>
+        <td><code>undefined</code></td>
+      </tr>
+      <tr>
+        <td><code>blacklist</code></td>
+        <td><code>BlacklistConfig</code></td>
+        <td>Blacklist configuration</td>
+        <td><code>undefined</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>Returns a <code>Guardrail</code> instance that can be used to protect requests.</p>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Zero-Config Usage</h3>
+  <p>Guardrail can work with zero configuration using built-in presets:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Uses API preset + auto-detects Redis if available</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>();</code></pre>
+  </div>
+
+  <h3>Custom Configuration</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, shield, window, RedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">RedisStorage</span>(process.env.REDIS_URL),
+  <span class="prop">errorHandling</span>: <span class="str">"FAIL_CLOSED"</span>,
+  <span class="prop">debug</span>: <span class="kw">true</span>,
+});</code></pre>
+  </div>
+
+  <h3>With Whitelist/Blacklist</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">whitelist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>],  <span class="cmt">// Admin IP</span>
+    <span class="prop">userIds</span>: [<span class="str">"admin"</span>],
+    <span class="prop">countries</span>: [<span class="str">"US"</span>, <span class="str">"CA"</span>],
+  },
+  <span class="prop">blacklist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"5.6.7.8"</span>],
+    <span class="prop">countries</span>: [<span class="str">"XX"</span>],
+  },
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Auto-Discovery</h2>
+  <p>Guardrail automatically discovers storage backends from environment variables:</p>
+  <ul>
+    <li><code>REDIS_URL</code> — Redis connection string</li>
+    <li><code>UPSTASH_REDIS_REST_URL</code> — Upstash Redis REST URL</li>
+    <li><code>REDIS_HOST</code> — Redis host</li>
+  </ul>
+  <p>
+    If Redis is detected, Guardrail will use <code>AtomicRedisStorage</code> automatically.
+    Otherwise, it falls back to <code>MemoryStorage</code>.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+    <li>
+      <a href="docs.html#presets" data-route="presets">Presets</a> — Built-in configuration presets
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Advanced
+      configuration options
+    </li>
+  </ul>
+</section>

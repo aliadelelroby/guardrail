@@ -1,0 +1,205 @@
+<header class="docs-header">
+  <h1 class="docs-title">Nest.js Adapter</h1>
+  <p class="docs-description">Decorator-driven security for Nest.js applications.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Nest.js adapter provides a powerful decorator-based API for adding security to your Nest.js
+    controllers and routes. It integrates seamlessly with Nest.js guards and interceptors.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Module Registration</h2>
+  <p>Register Guardrail as a module in your Nest.js application:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { Module } <span class="kw">from</span> <span class="str">"@nestjs/common"</span>;
+<span class="kw">import</span> { GuardrailModule } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Module</span>({
+  <span class="prop">imports</span>: [
+    GuardrailModule.<span class="fn">forRoot</span>({
+      <span class="prop">autoProtect</span>: <span class="kw">true</span>, <span class="cmt">// Automatically protect all routes</span>
+      <span class="prop">useGuard</span>: <span class="kw">true</span>,
+    }),
+  ],
+})
+<span class="kw">export class</span> <span class="fn">AppModule</span> {}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Decorators</h2>
+  <p>Use decorators to add protection to controllers and routes:</p>
+
+  <h3>Controller-Level Protection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { Controller, Post } <span class="kw">from</span> <span class="str">"@nestjs/common"</span>;
+<span class="kw">import</span> { Shield, Limit } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Controller</span>(<span class="str">"payments"</span>)
+@<span class="fn">Shield</span>() <span class="cmt">// Protect all routes in this controller</span>
+<span class="kw">export class</span> <span class="fn">PaymentsController</span> {
+  @<span class="fn">Post</span>()
+  @<span class="fn">Limit</span>({ <span class="prop">max</span>: <span class="num">5</span>, <span class="prop">interval</span>: <span class="str">"1m"</span> })
+  <span class="kw">async</span> <span class="fn">process</span>() {
+    <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+  }
+}</code></pre>
+  </div>
+
+  <h3>Available Decorators</h3>
+  <ul>
+    <li><code>@Shield()</code> — Attack protection</li>
+    <li><code>@Bot()</code> — Bot detection</li>
+    <li><code>@Limit()</code> — Sliding window rate limiting</li>
+    <li><code>@TokenBucket()</code> — Token bucket rate limiting</li>
+    <li>
+      <code>@Quota()</code> — User quotas and subscriptions (see
+      <a href="docs.html#feature-quota" data-route="feature-quota">Quota System</a>)
+    </li>
+    <li><code>@Email()</code> — Email validation</li>
+    <li><code>@Filter()</code> — Expression-based filtering</li>
+    <li><code>@BlockVPN()</code> — Block VPN traffic</li>
+    <li><code>@BlockCountry()</code> — Block specific countries</li>
+    <li><code>@Preset()</code> — Apply a preset configuration</li>
+  </ul>
+
+  <h3>Accessing Decision Data</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { Result, IPInfo } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+
+@<span class="fn">Post</span>()
+<span class="kw">async</span> <span class="fn">handle</span>(
+  @<span class="fn">Result</span>() decision: Decision,
+  @<span class="fn">IPInfo</span>() ipInfo: IPInfo
+) {
+  console.<span class="fn">log</span>(decision.id);
+  console.<span class="fn">log</span>(ipInfo.country);
+  <span class="kw">return</span> { <span class="prop">success</span>: <span class="kw">true</span> };
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Development Mode & Localhost</h2>
+  <p>
+    When developing locally, Guardrail automatically handles localhost and private IP addresses. In
+    development mode (<code>NODE_ENV !== "production"</code>), localhost IPs are automatically
+    whitelisted, so you can test your APIs without additional configuration.
+  </p>
+
+  <h3>Automatic Behavior</h3>
+  <p>
+    By default, Guardrail automatically allows requests from localhost when running in development
+    mode:
+  </p>
+  <ul>
+    <li><code>127.0.0.1</code> (IPv4 loopback)</li>
+    <li><code>::1</code> (IPv6 loopback)</li>
+    <li><code>localhost</code> (hostname)</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Works automatically in development (NODE_ENV !== "production")</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">autoProtect</span>: <span class="kw">true</span>,
+  <span class="prop">useGuard</span>: <span class="kw">true</span>,
+  <span class="cmt">// allowPrivateIPs defaults to true in development</span>
+});</code></pre>
+  </div>
+
+  <h3>Explicit Configuration</h3>
+  <p>You can explicitly control this behavior with the <code>allowPrivateIPs</code> option:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Explicitly allow private IPs (even in production)</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">allowPrivateIPs</span>: <span class="kw">true</span>,
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">allow</span>: [
+        <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>,
+        <span class="str">'ip.src.country eq "US"'</span>,
+      ],
+    }),
+  ],
+});
+
+<span class="cmt">// Explicitly disable (block localhost even in development)</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">allowPrivateIPs</span>: <span class="kw">false</span>,
+});</code></pre>
+  </div>
+
+  <div class="docs-callout">
+    <div class="docs-callout-title">⚠️ Production Security</div>
+    <p>
+      In production (<code>NODE_ENV === "production"</code>), private IPs are <strong>not</strong>
+      automatically allowed. This prevents SSRF attacks and ensures only legitimate public IPs can
+      access your APIs. If you need to allow private IPs in production, you must explicitly set
+      <code>allowPrivateIPs: true</code> and configure your filter rules accordingly.
+    </p>
+  </div>
+
+  <h3>Working with Country-Based Filters</h3>
+  <p>
+    When using country-based filters (e.g., <code>ip.src.country eq "US"</code>), localhost requests
+    will work automatically in development mode because they're whitelisted before filter
+    evaluation. In production, you'll need to explicitly allow localhost in your filter rules if
+    needed:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">allow</span>: [
+    <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>, <span class="cmt">// Allow localhost</span>
+    <span class="str">'ip.src.country eq "US"'</span>, <span class="cmt">// Allow US IPs</span>
+  ],
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#feature-quota" data-route="feature-quota">Quota System</a> — User quotas
+      and subscriptions for AI applications
+    </li>
+    <li>
+      <a href="docs.html#adapter-express" data-route="adapter-express">Express.js</a> — Express
+      adapter
+    </li>
+    <li>
+      <a href="docs.html#adapter-next" data-route="adapter-next">Next.js</a> — Next.js adapter
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,128 @@
+<header class="docs-header">
+  <h1 class="docs-title">email()</h1>
+  <p class="docs-description">
+    Email validation rule that blocks disposable, invalid, and problematic email addresses.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>email()</code> rule validates email addresses and can block disposable email services,
+    invalid formats, and emails without MX records.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, email } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">email</span>({
+      <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>, <span class="str">"INVALID"</span>],
+    }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">email</span>(config: EmailValidationRuleConfig): EmailValidationRuleConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>block</code></td>
+        <td><code>EmailBlockReason[]</code></td>
+        <td>Reasons to block emails</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>EmailBlockReason</h3>
+  <ul>
+    <li><code>"DISPOSABLE"</code> — Temporary email services</li>
+    <li><code>"INVALID"</code> — Invalid email format</li>
+    <li><code>"NO_MX_RECORDS"</code> — No mail server records</li>
+    <li><code>"FREE"</code> — Free email providers</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Block Disposable Emails</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">email</span>({
+  <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>],
+})</code></pre>
+  </div>
+
+  <h3>Comprehensive Blocking</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">email</span>({
+  <span class="prop">block</span>: [
+    <span class="str">"DISPOSABLE"</span>,
+    <span class="str">"INVALID"</span>,
+    <span class="str">"NO_MX_RECORDS"</span>,
+    <span class="str">"FREE"</span>,
+  ],
+})</code></pre>
+  </div>
+
+  <h3>Usage</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> { email } = <span class="kw">await</span> req.<span class="fn">json</span>();
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, { <span class="prop">email</span> });
+
+<span class="kw">if</span> (decision.reason.<span class="fn">isEmail</span>()) {
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Invalid email"</span>, { <span class="prop">status</span>: <span class="num">400</span> });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield"><code>shield()</code></a> — Attack
+      protection
+    </li>
+    <li>
+      <a href="docs.html#rule-filter" data-route="rule-filter"><code>filter()</code></a> —
+      Expression-based filtering
+    </li>
+  </ul>
+</section>
