@@ -1,0 +1,110 @@
+<header class="docs-header">
+  <h1 class="docs-title">Express.js Adapter</h1>
+  <p class="docs-description">Integrate Guardrail with Express.js applications.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Express.js adapter provides middleware factories that integrate Guardrail seamlessly with
+    Express applications.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> express <span class="kw">from</span> <span class="str">"express"</span>;
+<span class="kw">import</span> { guardrailExpress } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/express"</span>;
+
+<span class="kw">const</span> app = <span class="fn">express</span>();
+
+<span class="cmt">// Global protection</span>
+app.<span class="fn">use</span>(<span class="fn">guardrailExpress</span>.<span class="fn">api</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Installation</h2>
+  <p>No additional packages required. The Express adapter is included in the main package.</p>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+
+  <h3>Global Middleware</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> express <span class="kw">from</span> <span class="str">"express"</span>;
+<span class="kw">import</span> { guardrailExpress } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/express"</span>;
+
+<span class="kw">const</span> app = <span class="fn">express</span>();
+
+<span class="cmt">// Apply to all routes</span>
+app.<span class="fn">use</span>(<span class="fn">guardrailExpress</span>.<span class="fn">api</span>());</code></pre>
+  </div>
+
+  <h3>Route-Specific Protection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Protect specific routes</span>
+app.<span class="fn">post</span>(<span class="str">"/login"</span>, <span class="fn">guardrailExpress</span>.<span class="fn">auth</span>(), (req, res) => {
+  res.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+});
+
+app.<span class="fn">post</span>(<span class="str">"/payment"</span>, <span class="fn">guardrailExpress</span>.<span class="fn">payment</span>(), (req, res) => {
+  res.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+});</code></pre>
+  </div>
+
+  <h3>Custom Configuration</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailExpress, shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/express"</span>;
+
+app.<span class="fn">use</span>(
+  <span class="fn">guardrailExpress</span>({
+    <span class="prop">rules</span>: [
+      <span class="fn">shield</span>(),
+      <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+    ],
+    <span class="prop">debug</span>: <span class="kw">true</span>,
+  })
+);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Available Presets</h2>
+  <p>The Express adapter provides these preset methods:</p>
+  <ul>
+    <li><code>guardrailExpress.api()</code> — API endpoint protection</li>
+    <li><code>guardrailExpress.web()</code> — Web application protection</li>
+    <li><code>guardrailExpress.auth()</code> — Authentication endpoint protection</li>
+    <li><code>guardrailExpress.payment()</code> — Payment endpoint protection</li>
+    <li><code>guardrailExpress.strict()</code> — Maximum security</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#presets" data-route="presets">Presets</a> — Available configuration presets
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Core
+      protection method
+    </li>
+  </ul>
+</section>

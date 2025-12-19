@@ -1,19 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, type Mock } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { guardrailExpress } from "./express";
-import { shield, detectBot, slidingWindow } from "../rules/index";
+import { bot } from "../rules/index";
 import type { Request, Response, NextFunction } from "express";
-import type { Decision } from "../types/index";
-
-interface MockRequest extends Partial<Request> {
-  guardrail?: Decision;
-}
-
-interface MockResponse {
-  status: Mock<[code: number], MockResponse>;
-  json: Mock;
-  set: Mock;
-}
 
 describe("guardrailExpress", () => {
   it("should provide shortcut factories", () => {
@@ -50,7 +39,7 @@ describe("guardrailExpress", () => {
 
   it("should return 403 for denied requests", async () => {
     const middleware = guardrailExpress({
-      rules: [detectBot({ allow: [] })],
+      rules: [bot({ allow: [] })],
     });
 
     const req: any = {

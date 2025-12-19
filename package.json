@@ -1,19 +1,23 @@
 {
   "name": "@guardrail-dev/core",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Advanced rate limiting and security protection library - an open-source alternative to Arcjet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "test:typecheck": "vitest typecheck",
+    "test:typecheck": "vitest --typecheck.only",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
+    "benchmark": "npx tsx scripts/benchmark.ts",
     "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "guardrail": "dist/cli/index.js"
   },
   "keywords": [
     "rate-limiting",
@@ -34,7 +38,7 @@
   "bugs": {
     "url": "https://github.com/aliadelelroby/guardrail/issues"
   },
-  "homepage": "https://guardrail.dev",
+  "homepage": "https://aliadelelroby.github.io/guardrail/",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -45,28 +49,40 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./express": {
+      "types": "./dist/adapters/express.d.ts",
       "import": "./dist/adapters/express.js",
-      "types": "./dist/adapters/express.d.ts"
+      "require": "./dist/adapters/express.js",
+      "default": "./dist/adapters/express.js"
     },
     "./next": {
+      "types": "./dist/adapters/next.d.ts",
       "import": "./dist/adapters/next.js",
-      "types": "./dist/adapters/next.d.ts"
+      "require": "./dist/adapters/next.js",
+      "default": "./dist/adapters/next.js"
     },
     "./nestjs": {
+      "types": "./dist/adapters/nestjs/index.d.ts",
       "import": "./dist/adapters/nestjs/index.js",
-      "types": "./dist/adapters/nestjs/index.d.ts"
+      "require": "./dist/adapters/nestjs/index.js",
+      "default": "./dist/adapters/nestjs/index.js"
     },
     "./fastify": {
+      "types": "./dist/adapters/fastify.d.ts",
       "import": "./dist/adapters/fastify.js",
-      "types": "./dist/adapters/fastify.d.ts"
+      "require": "./dist/adapters/fastify.js",
+      "default": "./dist/adapters/fastify.js"
     },
     "./koa": {
+      "types": "./dist/adapters/koa.d.ts",
       "import": "./dist/adapters/koa.js",
-      "types": "./dist/adapters/koa.d.ts"
+      "require": "./dist/adapters/koa.js",
+      "default": "./dist/adapters/koa.js"
     }
   },
   "dependencies": {
@@ -75,8 +91,8 @@
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
-    "@nestjs/common": "^10.4.20",
-    "@nestjs/core": "^10.4.20",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.25",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
@@ -85,6 +101,7 @@
     "eslint": "^8.56.0",
     "prettier": "^3.2.4",
     "rxjs": "^7.8.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vitest": "^1.2.0"
   },

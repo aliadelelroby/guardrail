@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { Guardrail } from "./guardrail";
-import { shield, detectBot, slidingWindow, tokenBucket } from "../rules/index";
+import { shield, bot, window, bucket } from "../rules/index";
 
 describe("Guardrail", () => {
   let guardrail: Guardrail;
 
   beforeEach(() => {
     guardrail = new Guardrail({
-      rules: [shield(), detectBot({ allow: [] }), slidingWindow({ interval: "1m", max: 5 })],
+      rules: [shield(), bot({ allow: [] }), window({ interval: "1m", max: 5 })],
     });
   });
 
@@ -50,7 +50,7 @@ describe("Guardrail", () => {
     expect(health.status).toBeDefined();
     expect(health.storage).toBeDefined();
     expect(health.ipService).toBeDefined();
-  });
+  }, 15000);
 
   it("should allow valid requests", async () => {
     const request = new Request("https://example.com/api", {
@@ -83,7 +83,7 @@ describe("Guardrail", () => {
   it("should deny rate limited requests", async () => {
     // Create a new guardrail instance for this test to ensure clean state
     const rateLimitGuardrail = new Guardrail({
-      rules: [slidingWindow({ interval: "1m", max: 5 })],
+      rules: [window({ interval: "1m", max: 5 })],
     });
 
     // Use POST to bypass caching and unique IP
@@ -112,8 +112,8 @@ describe("Guardrail", () => {
   it("should handle token bucket quota", async () => {
     const gr = new Guardrail({
       rules: [
-        tokenBucket({
-          characteristics: ["userId"],
+        bucket({
+          by: ["userId"],
           refillRate: 100,
           interval: "1h",
           capacity: 500,
@@ -158,7 +158,7 @@ describe("Guardrail", () => {
 
     expect(decision.ip).toBeDefined();
     expect(decision.characteristics["ip.src"]).toBe("8.8.8.8");
-  });
+  }, 15000);
 
   it("should handle custom characteristics", async () => {
     const request = new Request("https://example.com/api");

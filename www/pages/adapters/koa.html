@@ -1,0 +1,86 @@
+<header class="docs-header">
+  <h1 class="docs-title">Koa Adapter</h1>
+  <p class="docs-description">Integrate Guardrail with Koa applications.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>The Koa adapter provides middleware that integrates Guardrail with Koa applications.</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> Koa <span class="kw">from</span> <span class="str">"koa"</span>;
+<span class="kw">import</span> { guardrailKoa } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/koa"</span>;
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Koa</span>();
+
+<span class="cmt">// Global protection</span>
+app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class="fn">web</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+
+  <h3>Global Middleware</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class="fn">api</span>());</code></pre>
+  </div>
+
+  <h3>Route-Specific Protection</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> Router <span class="kw">from</span> <span class="str">"@koa/router"</span>;
+
+<span class="kw">const</span> router = <span class="kw">new</span> <span class="fn">Router</span>();
+
+router.<span class="fn">post</span>(
+  <span class="str">"/login"</span>,
+  <span class="fn">guardrailKoa</span>.<span class="fn">auth</span>(),
+  <span class="kw">async</span> (ctx) => {
+    ctx.<span class="prop">body</span> = { <span class="prop">success</span>: <span class="kw">true</span> };
+  }
+);</code></pre>
+  </div>
+
+  <h3>Custom Configuration</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailKoa, shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/koa"</span>;
+
+app.<span class="fn">use</span>(
+  <span class="fn">guardrailKoa</span>({
+    <span class="prop">rules</span>: [
+      <span class="fn">shield</span>(),
+      <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+    ],
+  })
+);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#adapter-express" data-route="adapter-express">Express.js</a> — Express
+      adapter
+    </li>
+    <li>
+      <a href="docs.html#adapter-fastify" data-route="adapter-fastify">Fastify</a> — Fastify adapter
+    </li>
+  </ul>
+</section>

@@ -3,7 +3,9 @@
  * @module adapters/nestjs/decorators
  */
 
-import { SetMetadata, createParamDecorator, ExecutionContext } from "@nestjs/common";
+import { SetMetadata, createParamDecorator, type ExecutionContext } from "@nestjs/common";
+import { resolveValue } from "../../utils/resolver";
+import { buildQuotaRules } from "../../utils/quota-builder";
 import type {
   GuardrailRule,
   SlidingWindowConfig,
@@ -13,15 +15,10 @@ import type {
   ShieldConfig,
   FilterConfig,
   ProtectOptions,
+  DecisionContext,
+  QuotaConfig,
 } from "../../types/index";
-import {
-  slidingWindow,
-  tokenBucket,
-  detectBot,
-  validateEmail,
-  shield,
-  filter,
-} from "../../rules/index";
+import { window, bucket, bot, email, shield, filter } from "../../rules/index";
 
 /**
  * Metadata key for guardrail rules
@@ -44,9 +41,16 @@ export const SKIP_GUARDRAIL = "guardrail:skip";
 export const GUARDRAIL_PRESET = "guardrail:preset";
 
 /**
- * Generic decorator to add one or more guardrail rules to a route
+ * Generic decorator to add one or more guardrail rules to a route.
+ * This decorator is additive, meaning it can be used multiple times on the same method or class.
  */
-export const UseGuardrail = (...rules: GuardrailRule[]) => SetMetadata(GUARDRAIL_RULES, rules);
+export const UseGuardrail = (...rules: GuardrailRule[]) => {
+  return (target: any, key?: string | symbol, _descriptor?: TypedPropertyDescriptor<any>) => {
+    const decoratorTarget = key ? target[key] : target;
+    const existingRules = Reflect.getMetadata(GUARDRAIL_RULES, decoratorTarget) || [];
+    Reflect.defineMetadata(GUARDRAIL_RULES, [...existingRules, ...rules], decoratorTarget);
+  };
+};
 
 /**
  * Decorator to set guardrail protection options (userId, email, etc.)
@@ -62,17 +66,17 @@ export const SkipGuardrail = () => SetMetadata(SKIP_GUARDRAIL, true);
 /**
  * Decorator to apply a named preset
  */
-export const GuardrailPreset = (
+export const Preset = (
   name: "api" | "web" | "strict" | "ai" | "payment" | "auth" | "development"
 ) => SetMetadata(GUARDRAIL_PRESET, name);
 
 /**
  * Decorator for rate limiting using sliding window
  */
-export const RateLimit = (
+export const Limit = (
   config: Omit<SlidingWindowConfig, "type" | "mode"> & { mode?: SlidingWindowConfig["mode"] }
 ) => {
-  return UseGuardrail(slidingWindow(config));
+  return UseGuardrail(window(config));
 };
 
 /**
@@ -81,25 +85,25 @@ export const RateLimit = (
 export const TokenBucket = (
   config: Omit<TokenBucketConfig, "type" | "mode"> & { mode?: TokenBucketConfig["mode"] }
 ) => {
-  return UseGuardrail(tokenBucket(config));
+  return UseGuardrail(bucket(config));
 };
 
 /**
  * Decorator for bot detection
  */
-export const DetectBot = (
+export const Bot = (
   config: Omit<BotDetectionConfig, "type" | "mode"> & { mode?: BotDetectionConfig["mode"] }
 ) => {
-  return UseGuardrail(detectBot(config));
+  return UseGuardrail(bot(config));
 };
 
 /**
  * Decorator for email validation
  */
-export const ValidateEmail = (
+export const Email = (
   config: Omit<EmailValidationConfig, "type" | "mode"> & { mode?: EmailValidationConfig["mode"] }
 ) => {
-  return UseGuardrail(validateEmail(config));
+  return UseGuardrail(email(config));
 };
 
 /**
@@ -123,13 +127,12 @@ export const Filter = (
 /**
  * Shortcut decorator for blocking VPN/Proxy
  */
-export const GuardrailVPNBlock = () =>
-  Filter({ deny: ["ip.src.vpn == true", "ip.src.proxy == true"] });
+export const BlockVPN = () => Filter({ deny: ["ip.src.vpn == true", "ip.src.proxy == true"] });
 
 /**
  * Shortcut decorator for blocking specific countries
  */
-export const GuardrailCountryBlock = (countries: string[]) =>
+export const BlockCountry = (countries: string[]) =>
   Filter({ deny: countries.map((c) => `ip.src.country == "${c}"`) });
 
 /**
@@ -139,9 +142,17 @@ export const WhitelistIPs = (ips: string[]) =>
   Filter({ allow: ips.map((ip) => `ip.src == "${ip}"`) });
 
 /**
+ * High-level decorator for managing user quotas and subscriptions.
+ * Automatically tracks by userId and supports stacked limits.
+ */
+export const Quota = (config: QuotaConfig) => {
+  return UseGuardrail(...buildQuotaRules(config));
+};
+
+/**
  * Parameter decorator to inject the Guardrail decision
  */
-export const Decision = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+export const Result = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
   return request.guardrail;
 });
@@ -149,7 +160,7 @@ export const Decision = createParamDecorator((data: unknown, ctx: ExecutionConte
 /**
  * Parameter decorator to inject IP info
  */
-export const IPInfo = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+export const IPInfo = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
   return request.guardrail?.ip;
 });
@@ -157,7 +168,26 @@ export const IPInfo = createParamDecorator((data: unknown, ctx: ExecutionContext
 /**
  * Parameter decorator to inject requested tokens
  */
-export const RequestedTokens = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+export const Tokens = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
   return request.guardrail?.characteristics?.requested;
 });
+
+/**
+ * Utility to define limits based on common tiers
+ * @param tiers - Mapping of tier names to limits
+ * @param metadataPath - Path in options to find the tier (default: 'metadata.tier' or 'tier')
+ */
+export function byTier(
+  tiers: Record<string, number>,
+  metadataPath: string = "tier"
+): (context: DecisionContext) => Promise<number> {
+  return async (context: DecisionContext) => {
+    // 1. Try specified path
+    const tier = await resolveValue<string>(metadataPath, context, "free");
+    return tiers[tier] ?? tiers["free"] ?? 0;
+  };
+}
+
+// Re-export resolveValue for custom resolvers
+export { resolveValue };

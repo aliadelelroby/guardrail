@@ -6,57 +6,57 @@
 import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from "express";
 import { Guardrail } from "../core/guardrail";
 import { GuardrailPresets } from "../core/presets";
-import type { GuardrailConfig, ProtectOptions } from "../types/index";
+import { buildQuotaRules } from "../utils/quota-builder";
+import { resolveProtectOptions, formatDenialResponse } from "../utils/adapter-utils";
+import type { GuardrailConfig, ProtectOptions, AdapterOptions, QuotaConfig } from "../types/index";
 import "./express.d";
+
+/**
+ * Express-specific middleware options
+ */
+export interface ExpressGuardrailOptions extends GuardrailConfig, AdapterOptions<ExpressRequest> {}
 
 /**
  * Internal helper to create Express middleware
  */
-function createExpressMiddleware(config: Partial<GuardrailConfig> = {}) {
+function createExpressMiddleware(config: Partial<ExpressGuardrailOptions> = {}) {
   const guardrail = new Guardrail(config);
 
   return async (
     req: ExpressRequest,
     res: ExpressResponse,
     next: NextFunction,
-    options?: ProtectOptions
+    options: ProtectOptions = {}
   ): Promise<void> => {
-    const webRequest = Guardrail.toWebRequest(req);
-    const decision = await guardrail.protect(webRequest, options);
+    try {
+      // 1. Resolve Dynamic Options from Request
+      const protectOptions = resolveProtectOptions(req, config, options);
 
-    // Set standard headers
-    const headers = Guardrail.getSecurityHeaders(decision);
-    for (const [key, value] of Object.entries(headers)) {
-      res.set(key, value);
-    }
+      // 2. Evaluate Protection
+      const webRequest = Guardrail.toWebRequest(req);
+      const decision = await guardrail.protect(webRequest, protectOptions);
 
-    if (decision.isDenied()) {
-      if (decision.reason.isRateLimit() || decision.reason.isQuota()) {
-        res.status(429).json({
-          error: "Rate limit exceeded",
-          message: "Too many requests. Please try again later.",
-          remaining: decision.reason.getRemaining() ?? 0,
-        });
+      // 3. Set standard headers
+      const headers = Guardrail.getSecurityHeaders(decision);
+      for (const [key, value] of Object.entries(headers)) {
+        res.set(key, value);
+      }
+
+      // 4. Handle Denial
+      if (decision.isDenied()) {
+        const { status, body } = formatDenialResponse(decision);
+        res.status(status).json(body);
         return;
       }
 
-      const isBot = decision.reason.isBot();
-      const isShield = decision.reason.isShield();
-
-      res.status(403).json({
-        error: "Forbidden",
-        message: isBot
-          ? "Automated access is restricted."
-          : isShield
-            ? "Potential security threat detected."
-            : "Request denied by security policy.",
-        reason: decision.reason,
-      });
-      return;
+      // 5. Success - Attach decision to request
+      req.guardrail = decision;
+      next();
+    } catch (error) {
+      console.error("[Guardrail Express] Middleware error:", error);
+      // Fail open by default for middleware stability
+      next();
     }
-
-    req.guardrail = decision;
-    next();
   };
 }
 
@@ -64,22 +64,41 @@ function createExpressMiddleware(config: Partial<GuardrailConfig> = {}) {
  * Express.js adapter for Guardrail
  */
 export const guardrailExpress = Object.assign(
-  (config: Partial<GuardrailConfig> = {}) => createExpressMiddleware(config),
+  (config: Partial<ExpressGuardrailOptions> = {}) => createExpressMiddleware(config),
   {
-    api: (overrides: Partial<GuardrailConfig> = {}) =>
+    /**
+     * Standard API protection preset
+     */
+    api: (overrides: Partial<ExpressGuardrailOptions> = {}) =>
       createExpressMiddleware({ ...GuardrailPresets.api(), ...overrides }),
-    web: (overrides: Partial<GuardrailConfig> = {}) =>
+
+    /**
+     * Web application protection preset
+     */
+    web: (overrides: Partial<ExpressGuardrailOptions> = {}) =>
       createExpressMiddleware({ ...GuardrailPresets.web(), ...overrides }),
-    strict: (overrides: Partial<GuardrailConfig> = {}) =>
+
+    /**
+     * Strict protection preset
+     */
+    strict: (overrides: Partial<ExpressGuardrailOptions> = {}) =>
       createExpressMiddleware({ ...GuardrailPresets.strict(), ...overrides }),
-    auth: (overrides: Partial<GuardrailConfig> = {}) =>
-      createExpressMiddleware({ ...GuardrailPresets.auth(), ...overrides }),
-    payment: (overrides: Partial<GuardrailConfig> = {}) =>
-      createExpressMiddleware({ ...GuardrailPresets.payment(), ...overrides }),
-    ai: (overrides: Partial<GuardrailConfig> = {}) =>
-      createExpressMiddleware({ ...GuardrailPresets.ai(), ...overrides }),
+
+    /**
+     * Quota-based protection for SaaS apps
+     */
+    quota: (quotaConfig: QuotaConfig, overrides: Partial<ExpressGuardrailOptions> = {}) =>
+      createExpressMiddleware({
+        ...overrides,
+        rules: [...(overrides.rules || []), ...buildQuotaRules(quotaConfig)],
+      }),
+
+    /** Alias for quota */
+    subscription: (quotaConfig: QuotaConfig, overrides: Partial<ExpressGuardrailOptions> = {}) =>
+      guardrailExpress.quota(quotaConfig, overrides),
   }
 );
 
 export { Guardrail } from "../core/guardrail";
+export { window, bucket, bot, email, shield, filter } from "../rules/index";
 export type * from "../types/index";

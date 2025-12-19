@@ -1,0 +1,183 @@
+<header class="docs-header">
+  <h1 class="docs-title">Configuration</h1>
+  <p class="docs-description">Advanced configuration options for Guardrail instances.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail provides extensive configuration options to customize behavior, error handling,
+    evaluation strategies, and more.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Error Handling Modes</h2>
+  <p>Control how Guardrail behaves when errors occur:</p>
+
+  <h3>FAIL_OPEN (Default)</h3>
+  <p>
+    On errors, allow requests through. This ensures your application continues to function even if
+    Guardrail encounters issues.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">errorHandling</span>: <span class="str">"FAIL_OPEN"</span>, <span class="cmt">// Default</span>
+});</code></pre>
+  </div>
+
+  <h3>FAIL_CLOSED</h3>
+  <p>
+    On errors, deny requests. More secure but may cause legitimate requests to be blocked if systems
+    fail.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">errorHandling</span>: <span class="str">"FAIL_CLOSED"</span>, <span class="cmt">// More secure</span>
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Evaluation Strategies</h2>
+  <p>Control how rules are evaluated:</p>
+
+  <h3>SEQUENTIAL (Default)</h3>
+  <p>Evaluate rules one by one in order. Each rule is evaluated before moving to the next.</p>
+
+  <h3>PARALLEL</h3>
+  <p>Evaluate all rules simultaneously. Faster but uses more resources.</p>
+
+  <h3>SHORT_CIRCUIT</h3>
+  <p>Stop evaluation on the first DENY decision. Most efficient for strict security.</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">evaluationStrategy</span>: <span class="str">"SHORT_CIRCUIT"</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Whitelist and Blacklist</h2>
+  <p>Bypass or block specific IPs, users, countries, or email domains:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">whitelist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>], <span class="cmt">// Admin IP</span>
+    <span class="prop">userIds</span>: [<span class="str">"admin"</span>],
+    <span class="prop">countries</span>: [<span class="str">"US"</span>, <span class="str">"CA"</span>],
+    <span class="prop">emailDomains</span>: [<span class="str">"company.com"</span>],
+  },
+  <span class="prop">blacklist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"5.6.7.8"</span>],
+    <span class="prop">countries</span>: [<span class="str">"XX"</span>],
+    <span class="prop">emailDomains</span>: [<span class="str">"spam.com"</span>],
+  },
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Debug Mode</h2>
+  <p>Enable debug mode to get detailed logging and metrics:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enables metrics and detailed logging</span>
+});
+
+<span class="cmt">// Access metrics</span>
+<span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+console.<span class="fn">log</span>(metrics.<span class="fn">getMetrics</span>());</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Storage Configuration</h2>
+  <p>Configure storage backends for rate limiting data:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, MemoryStorage, RedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Memory storage (single instance)</span>
+<span class="kw">const</span> gr1 = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">MemoryStorage</span>(<span class="num">10000</span>),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});
+
+<span class="cmt">// Redis storage (distributed)</span>
+<span class="kw">const</span> gr2 = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">RedisStorage</span>(process.env.REDIS_URL),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>IP Service Configuration</h2>
+  <p>Configure IP geolocation services:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, MaxMindProvider } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">ipService</span>: <span class="kw">new</span> <span class="fn">MaxMindProvider</span>({
+    <span class="prop">accountId</span>: process.env.MAXMIND_ACCOUNT_ID,
+    <span class="prop">licenseKey</span>: process.env.MAXMIND_LICENSE_KEY,
+  }),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li><a href="docs.html#presets" data-route="presets">Presets</a> — Pre-configured settings</li>
+    <li>
+      <a href="docs.html#storage-memory" data-route="storage-memory">Storage Backends</a> — Storage
+      options
+    </li>
+  </ul>
+</section>

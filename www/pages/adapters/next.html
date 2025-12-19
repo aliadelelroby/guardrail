@@ -1,0 +1,96 @@
+<header class="docs-header">
+  <h1 class="docs-title">Next.js Adapter</h1>
+  <p class="docs-description">Integrate Guardrail with Next.js App Router and Pages Router.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Next.js adapter provides seamless integration with both App Router and Pages Router. It
+    supports middleware, API routes, and route handlers.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Middleware (App Router)</h2>
+  <p>Protect all routes using Next.js middleware:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// middleware.ts</span>
+<span class="kw">import</span> { guardrailNext } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="kw">export const</span> middleware = <span class="fn">guardrailNext</span>.<span class="fn">api</span>().<span class="fn">middleware</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>API Routes (App Router)</h2>
+  <p>Protect individual API route handlers:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// app/api/data/route.ts</span>
+<span class="kw">import</span> { protect } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="kw">export const</span> GET = <span class="fn">protect</span>(<span class="kw">async</span> (req) => {
+  <span class="kw">return</span> Response.<span class="fn">json</span>({ <span class="prop">data</span>: <span class="str">"..."</span> });
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>API Routes (Pages Router)</h2>
+  <p>Protect Pages Router API routes:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// pages/api/data.ts</span>
+<span class="kw">import</span> { protect } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+<span class="kw">import type</span> { NextApiRequest, NextApiResponse } <span class="kw">from</span> <span class="str">"next"</span>;
+
+<span class="kw">export default</span> <span class="fn">protect</span>(<span class="kw">async</span> (req: NextApiRequest, res: NextApiResponse) => {
+  res.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Custom Configuration</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrailNext, shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+
+<span class="kw">export const</span> middleware = <span class="fn">guardrailNext</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+}).<span class="fn">middleware</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#adapter-express" data-route="adapter-express">Express.js</a> — Express
+      adapter
+    </li>
+    <li>
+      <a href="docs.html#adapter-nestjs" data-route="adapter-nestjs">Nest.js</a> — Nest.js adapter
+    </li>
+  </ul>
+</section>

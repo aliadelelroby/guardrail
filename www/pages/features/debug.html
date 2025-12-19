@@ -1,0 +1,220 @@
+<header class="docs-header">
+  <h1 class="docs-title">Visual Debug Mode</h1>
+  <p class="docs-description">
+    Enhanced debugging with structured decision trees, color-coded console output, and timeline
+    visualization for understanding Guardrail behavior.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Visual Debug Mode provides detailed, structured console output for Guardrail decisions, making
+    it easy to understand why requests are allowed or denied. It includes decision trees, rule
+    evaluation timelines, and color-coded output.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable visual debug mode</span>
+});
+
+<span class="cmt">// All protect() calls will now output detailed debug information</span>
+<span class="kw">await</span> gr.<span class="fn">protect</span>(request);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Enabling Debug Mode</h2>
+  <p>Enable debug mode when creating a Guardrail instance:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> guardrail = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="fn">shield</span>(), <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1h"</span>, <span class="prop">max</span>: <span class="num">100</span> })],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable debug mode</span>
+});</code></pre>
+  </div>
+
+  <p>
+    When debug mode is enabled, every call to <code>protect()</code> will automatically output
+    detailed debug information to the console.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Debug Output Format</h2>
+  <p>The debug output includes:</p>
+  <ul>
+    <li><strong>Decision Summary</strong> — Whether the request was allowed or denied</li>
+    <li><strong>Rule Evaluation Tree</strong> — Visual tree showing each rule's result</li>
+    <li><strong>Timeline</strong> — Chronological view of rule evaluation</li>
+    <li><strong>IP Information</strong> — Geolocation and threat indicators</li>
+    <li><strong>Color Coding</strong> — Green for allowed, red for denied</li>
+  </ul>
+
+  <h3>Example Output</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">text</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>┌─────────────────────────────────────┐
+│ Guardrail Decision: abc-123-def     │
+├─────────────────────────────────────┤
+│ ✓ Request ALLOWED                   │
+│                                     │
+│ Rule Evaluation Tree:               │
+│ ├─ shield: ✓ ALLOW                  │
+│ ├─ window: ✓ ALLOW (45 remaining)   │
+│ └─ bot: ✓ ALLOW                     │
+│                                     │
+│ IP: United States, New York         │
+│ VPN/Proxy: Not detected             │
+└─────────────────────────────────────┘
+
+Evaluation Timeline:
+1. shield → ALLOW (2ms)
+2. window → ALLOW (5ms)
+3. bot → ALLOW (3ms)
+Total: 10ms</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Programmatic Usage</h2>
+  <p>You can also use the debug visualizer functions directly for custom output formatting:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { logDecision, visualizeDecision, visualizeTimeline } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+
+<span class="cmt">// Log full decision with timeline</span>
+<span class="fn">logDecision</span>(decision, {
+  <span class="prop">color</span>: <span class="kw">true</span>,
+  <span class="prop">detailed</span>: <span class="kw">true</span>,
+  <span class="prop">timeline</span>: <span class="kw">true</span>,
+  <span class="prop">showIP</span>: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Get just the visualization string</span>
+<span class="kw">const</span> visualization = <span class="fn">visualizeDecision</span>(decision, {
+  <span class="prop">color</span>: <span class="kw">false</span>, <span class="cmt">// Plain text</span>
+  <span class="prop">detailed</span>: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Get just the timeline</span>
+<span class="kw">const</span> timeline = <span class="fn">visualizeTimeline</span>(decision.results);
+console.<span class="fn">log</span>(timeline);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Options</h2>
+  <p>The debug visualizer supports several options:</p>
+
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Type</th>
+        <th>Default</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>color</code></td>
+        <td><code>boolean</code></td>
+        <td><code>true</code></td>
+        <td>Enable color-coded output (green/red)</td>
+      </tr>
+      <tr>
+        <td><code>detailed</code></td>
+        <td><code>boolean</code></td>
+        <td><code>true</code></td>
+        <td>Include detailed rule information</td>
+      </tr>
+      <tr>
+        <td><code>timeline</code></td>
+        <td><code>boolean</code></td>
+        <td><code>false</code></td>
+        <td>Include evaluation timeline</td>
+      </tr>
+      <tr>
+        <td><code>showIP</code></td>
+        <td><code>boolean</code></td>
+        <td><code>true</code></td>
+        <td>Include IP geolocation information</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Use Cases</h2>
+
+  <h3>Development Debugging</h3>
+  <p>Enable debug mode during development to understand rule behavior:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> guardrail = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: process.env.NODE_ENV === <span class="str">"development"</span>,
+});</code></pre>
+  </div>
+
+  <h3>Production Monitoring</h3>
+  <p>Use programmatic visualization for structured logging:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { visualizeDecision } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+  <span class="kw">const</span> debugInfo = <span class="fn">visualizeDecision</span>(decision, { <span class="prop">color</span>: <span class="kw">false</span> });
+  <span class="cmt">// Send to your logging service</span>
+  logger.<span class="fn">warn</span>({ <span class="prop">decision</span>: debugInfo });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-explain" data-route="api-explain"><code>decision.explain()</code></a> —
+      Human-readable explanations
+    </li>
+    <li>
+      <a href="docs.html#feature-replay" data-route="feature-replay">Request Replay Tool</a> —
+      Replay and test requests
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

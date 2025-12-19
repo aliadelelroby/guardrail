@@ -1,0 +1,110 @@
+<header class="docs-header">
+  <h1 class="docs-title">getStorage()</h1>
+  <p class="docs-description">Gets the storage adapter used by this Guardrail instance.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>getStorage()</code> method returns the storage adapter instance that Guardrail is
+    using for rate limiting data. This is useful for direct storage operations or debugging.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> storage = gr.<span class="fn">getStorage</span>();
+
+<span class="cmt">// Access storage methods directly</span>
+<span class="kw">if</span> (storage <span class="kw">instanceof</span> RedisStorage) {
+  console.<span class="fn">log</span>(<span class="str">"Using Redis storage"</span>);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">getStorage</span>(): StorageAdapter</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>
+    Returns the <code>StorageAdapter</code> instance being used by this Guardrail instance. This
+    could be:
+  </p>
+  <ul>
+    <li><code>MemoryStorage</code> — In-memory storage for single-instance deployments</li>
+    <li><code>RedisStorage</code> — Redis-based storage for distributed deployments</li>
+    <li>
+      <code>AtomicRedisStorage</code> — Atomic Redis operations for high-concurrency scenarios
+    </li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Check Storage Type</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { RedisStorage, AtomicRedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> storage = gr.<span class="fn">getStorage</span>();
+
+<span class="kw">if</span> (storage <span class="kw">instanceof</span> AtomicRedisStorage) {
+  console.<span class="fn">log</span>(<span class="str">"Using atomic Redis storage"</span>);
+} <span class="kw">else if</span> (storage <span class="kw">instanceof</span> RedisStorage) {
+  console.<span class="fn">log</span>(<span class="str">"Using Redis storage"</span>);
+} <span class="kw">else</span> {
+  console.<span class="fn">log</span>(<span class="str">"Using memory storage"</span>);
+}</code></pre>
+  </div>
+
+  <h3>Direct Storage Access</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> storage = gr.<span class="fn">getStorage</span>();
+
+<span class="cmt">// Access storage methods directly (if needed)</span>
+<span class="cmt">// Note: Direct storage access is usually not necessary</span>
+<span class="cmt">// Guardrail handles all storage operations internally</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#storage-memory" data-route="storage-memory">MemoryStorage</a> — In-memory
+      storage
+    </li>
+    <li>
+      <a href="docs.html#storage-redis" data-route="storage-redis">RedisStorage</a> — Redis storage
+    </li>
+    <li>
+      <a href="docs.html#storage-atomic-redis" data-route="storage-atomic-redis"
+        >AtomicRedisStorage</a
+      >
+      — Atomic Redis storage
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,211 @@
+<header class="docs-header">
+  <h1 class="docs-title">Configuration Validation</h1>
+  <p class="docs-description">
+    Validate Guardrail configurations at runtime with detailed error messages to catch configuration
+    errors before they cause issues in production.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail automatically validates configurations when creating instances, providing clear error
+    messages for invalid settings. You can also validate configurations programmatically before use.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { validateConfig, formatValidationErrors } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> config = { <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>] };
+<span class="kw">const</span> result = <span class="fn">validateConfig</span>(config);
+
+<span class="kw">if</span> (!result.valid) {
+  console.<span class="fn">error</span>(<span class="fn">formatValidationErrors</span>(result.errors));
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Automatic Validation</h2>
+  <p>
+    Guardrail automatically validates configurations when creating instances. Invalid configurations
+    will throw a <code>ConfigValidationError</code> with detailed information:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">try</span> {
+  <span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+    <span class="prop">mode</span>: <span class="str">"INVALID"</span>, <span class="cmt">// Invalid value</span>
+  });
+} <span class="kw">catch</span> (error) {
+  <span class="cmt">// ConfigValidationError with detailed message</span>
+  console.<span class="fn">error</span>(error.message);
+  <span class="cmt">// "Configuration validation failed: 1 error(s) found: [mode] Invalid mode: INVALID"</span>
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Programmatic Validation</h2>
+  <p>Validate configurations before creating Guardrail instances:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { validateConfig, formatValidationErrors } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> config = {
+  <span class="prop">rules</span>: [
+    {
+      <span class="prop">type</span>: <span class="str">"slidingWindow"</span>,
+      <span class="prop">interval</span>: <span class="str">"1h"</span>,
+      <span class="cmt">// Missing required 'max' field</span>
+    },
+  ],
+};
+
+<span class="kw">const</span> result = <span class="fn">validateConfig</span>(config);
+
+<span class="kw">if</span> (!result.valid) {
+  <span class="kw">const</span> errorMessage = <span class="fn">formatValidationErrors</span>(result.errors);
+  console.<span class="fn">error</span>(<span class="str">"Configuration errors:"</span>, errorMessage);
+  <span class="cmt">// "Configuration validation failed: 1 error(s) found: [rules[0].max] Missing required field: max"</span>
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>What Gets Validated</h2>
+  <p>Configuration validation checks:</p>
+
+  <h3>Top-Level Properties</h3>
+  <ul>
+    <li><code>mode</code> — Must be "LIVE", "DRY_RUN", or "TEST"</li>
+    <li><code>errorHandling</code> — Must be "FAIL_OPEN" or "FAIL_CLOSED"</li>
+    <li><code>evaluationStrategy</code> — Must be "SEQUENTIAL", "PARALLEL", or "SHORT_CIRCUIT"</li>
+  </ul>
+
+  <h3>Rules</h3>
+  <ul>
+    <li>Rules must be an array</li>
+    <li>Each rule must have a valid <code>type</code></li>
+    <li>Rule-specific required fields (e.g., <code>max</code> for slidingWindow)</li>
+    <li>Rule <code>mode</code> must be valid if provided</li>
+  </ul>
+
+  <h3>Lists</h3>
+  <ul>
+    <li><code>whitelist</code> and <code>blacklist</code> must be objects</li>
+    <li>List arrays (ips, userIds, etc.) must be arrays</li>
+  </ul>
+
+  <h3>Resilience</h3>
+  <ul>
+    <li><code>resilience.storage.threshold</code> must be ≥ 1</li>
+    <li><code>resilience.storage.timeout</code> must be ≥ 0</li>
+    <li><code>resilience.ip.threshold</code> must be ≥ 1</li>
+    <li><code>resilience.ip.timeout</code> must be ≥ 0</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Error Messages</h2>
+  <p>Validation errors include the field path and a clear description of what's wrong:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> result = <span class="fn">validateConfig</span>({
+  <span class="prop">rules</span>: [
+    {
+      <span class="prop">type</span>: <span class="str">"slidingWindow"</span>,
+      <span class="prop">interval</span>: <span class="str">"1h"</span>,
+      <span class="cmt">// Missing max</span>
+    },
+  ],
+});
+
+<span class="kw">if</span> (!result.valid) {
+  <span class="kw">for</span> (<span class="kw">const</span> error <span class="kw">of</span> result.errors) {
+    console.<span class="fn">log</span>(error.field); <span class="cmt">// "rules[0].max"</span>
+    console.<span class="fn">log</span>(error.message); <span class="cmt">// "Missing required field: max"</span>
+  }
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Use Cases</h2>
+
+  <h3>Pre-Flight Validation</h3>
+  <p>Validate configurations before deploying:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { loadConfigFile, validateConfig, formatValidationErrors } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> config = <span class="fn">loadConfigFile</span>({ <span class="prop">environment</span>: <span class="str">"production"</span> });
+<span class="kw">const</span> result = <span class="fn">validateConfig</span>(config);
+
+<span class="kw">if</span> (!result.valid) {
+  console.<span class="fn">error</span>(<span class="str">"Invalid configuration:"</span>);
+  console.<span class="fn">error</span>(<span class="fn">formatValidationErrors</span>(result.errors));
+  process.<span class="fn">exit</span>(<span class="num">1</span>);
+}</code></pre>
+  </div>
+
+  <h3>Configuration Testing</h3>
+  <p>Test configurations in CI/CD pipelines:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># In your test script</span>
+node -e <span class="str">"
+  const { loadConfigFile, validateConfig } = require('@guardrail-dev/core');
+  const config = loadConfigFile();
+  const result = validateConfig(config);
+  if (!result.valid) {
+    console.error('Config validation failed');
+    process.exit(1);
+  }
+"</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#feature-config-file" data-route="feature-config-file"
+        >Config File Support</a
+      >
+      — Load configurations from files
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Configuration
+      options reference
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instances
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,131 @@
+<header class="docs-header">
+  <h1 class="docs-title">getMetrics()</h1>
+  <p class="docs-description">Gets the metrics collector used by this Guardrail instance.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>getMetrics()</code> method returns the metrics collector instance. Metrics are only
+    available when <code>debug: true</code> is set in the Guardrail configuration.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+  <span class="prop">debug</span>: <span class="kw">true</span>, <span class="cmt">// Enable metrics</span>
+});
+
+<span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+<span class="kw">const</span> allMetrics = metrics.<span class="fn">getMetrics</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">getMetrics</span>(): MetricsCollector</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>
+    Returns the <code>MetricsCollector</code> instance. When <code>debug: false</code>, this returns a
+    no-op collector that doesn't track metrics.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Available Metrics</h2>
+  <p>When debug mode is enabled, the following metrics are tracked:</p>
+  <ul>
+    <li><code>guardrail.requests.total</code> — Total number of requests</li>
+    <li><code>guardrail.requests.cached</code> — Number of cached requests</li>
+    <li><code>guardrail.decisions.allowed</code> — Number of allowed requests</li>
+    <li><code>guardrail.decisions.denied</code> — Number of denied requests</li>
+    <li><code>guardrail.request.duration</code> — Request processing duration</li>
+    <li><code>guardrail.ip_lookup.success</code> — Successful IP lookups</li>
+    <li><code>guardrail.ip_lookup.error</code> — Failed IP lookups</li>
+    <li><code>guardrail.rule.{ruleType}.duration</code> — Rule evaluation duration</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Get All Metrics</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+<span class="kw">const</span> allMetrics = metrics.<span class="fn">getMetrics</span>();
+
+console.<span class="fn">log</span>(allMetrics);
+<span class="cmt">// [
+<span class="cmt">//   { name: "guardrail.requests.total", value: 1000, type: "counter" },
+<span class="cmt">//   { name: "guardrail.decisions.allowed", value: 950, type: "counter" },
+<span class="cmt">//   { name: "guardrail.decisions.denied", value: 50, type: "counter" },
+<span class="cmt">//   ...
+<span class="cmt">// ]</span></code></pre>
+  </div>
+
+  <h3>Metrics Endpoint</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">export async function</span> <span class="fn">GET</span>(req: Request) {
+  <span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+  <span class="kw">return</span> Response.<span class="fn">json</span>(metrics.<span class="fn">getMetrics</span>());
+}</code></pre>
+  </div>
+
+  <h3>Reset Metrics</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> metrics = gr.<span class="fn">getMetrics</span>();
+
+<span class="cmt">// Reset all metrics</span>
+metrics.<span class="fn">reset</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Note</h2>
+  <p>
+    Metrics collection has a performance overhead. Only enable <code>debug: true</code> in
+    development or when you need to monitor Guardrail's performance.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#util-metrics" data-route="util-metrics">Metrics</a> — Metrics utilities
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Enable
+      debug mode
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,154 @@
+<header class="docs-header">
+  <h1 class="docs-title">checkHealth()</h1>
+  <p class="docs-description">Checks the health of the Guardrail instance and its dependencies.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>checkHealth()</code> method verifies that the Guardrail instance and its dependencies
+    (storage, IP service) are operational. This is useful for health checks and monitoring.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> health = <span class="kw">await</span> gr.<span class="fn">checkHealth</span>();
+
+<span class="kw">if</span> (health.status === <span class="str">"healthy"</span>) {
+  <span class="cmt">// All systems operational</span>
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">async</span> <span class="fn">checkHealth</span>(): Promise&lt;{
+  status: <span class="str">"healthy"</span> | <span class="str">"unhealthy"</span>;
+  storage: <span class="str">"connected"</span> | <span class="str">"disconnected"</span> | <span class="str">"not_applicable"</span>;
+  ipService: <span class="str">"operational"</span> | <span class="str">"degraded"</span> | <span class="str">"error"</span>;
+}&gt;</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>Returns a Promise that resolves to a health status object:</p>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td><code>"healthy" | "unhealthy"</code></td>
+        <td>Overall health status</td>
+      </tr>
+      <tr>
+        <td><code>storage</code></td>
+        <td><code>"connected" | "disconnected" | "not_applicable"</code></td>
+        <td>Storage backend status (only checked for Redis storage)</td>
+      </tr>
+      <tr>
+        <td><code>ipService</code></td>
+        <td><code>"operational" | "degraded" | "error"</code></td>
+        <td>IP geolocation service status</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Basic Health Check</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> health = <span class="kw">await</span> gr.<span class="fn">checkHealth</span>();
+
+<span class="kw">if</span> (health.status === <span class="str">"healthy"</span>) {
+  console.<span class="fn">log</span>(<span class="str">"All systems operational"</span>);
+} <span class="kw">else</span> {
+  console.<span class="fn">error</span>(<span class="str">"System unhealthy:"</span>, health);
+}</code></pre>
+  </div>
+
+  <h3>Health Check Endpoint</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">export async function</span> <span class="fn">GET</span>(req: Request) {
+  <span class="kw">const</span> health = <span class="kw">await</span> gr.<span class="fn">checkHealth</span>();
+  
+  <span class="kw">return</span> Response.<span class="fn">json</span>(health, {
+    <span class="prop">status</span>: health.status === <span class="str">"healthy"</span> ? <span class="num">200</span> : <span class="num">503</span>,
+  });
+}</code></pre>
+  </div>
+
+  <h3>Detailed Health Monitoring</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> health = <span class="kw">await</span> gr.<span class="fn">checkHealth</span>();
+
+<span class="kw">if</span> (health.storage === <span class="str">"disconnected"</span>) {
+  console.<span class="fn">warn</span>(<span class="str">"Redis storage is disconnected"</span>);
+}
+
+<span class="kw">if</span> (health.ipService === <span class="str">"error"</span>) {
+  console.<span class="fn">error</span>(<span class="str">"IP service is not operational"</span>);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Notes</h2>
+  <ul>
+    <li>Storage health is only checked for Redis-based storage backends</li>
+    <li>Memory storage always returns <code>"not_applicable"</code> for storage status</li>
+    <li>IP service health is checked by attempting to lookup a test IP (8.8.8.8)</li>
+    <li>
+      The overall status is <code>"unhealthy"</code> if storage is disconnected or IP service has
+      errors
+    </li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#storage-redis" data-route="storage-redis">RedisStorage</a> — Redis storage
+      backend
+    </li>
+    <li>
+      <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation"
+        >IPGeolocation</a
+      >
+      — IP geolocation service
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,257 @@
+<header class="docs-header">
+  <h1 class="docs-title">Request Replay Tool</h1>
+  <p class="docs-description">
+    Replay requests from log files to test configurations, compare rule changes, and debug
+    production issues.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The Request Replay Tool allows you to replay requests from JSON log files against different
+    Guardrail configurations. This is useful for testing configuration changes, debugging production
+    issues, and comparing rule behavior.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Replay requests from a log file</span>
+npx guardrail replay requests.jsonl --config guardrail.config.json</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Installation</h2>
+  <p>The replay tool is included with Guardrail. Use it via npx or install globally:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Use via npx (recommended)</span>
+npx guardrail replay requests.jsonl
+
+<span class="cmt"># Or install globally</span>
+npm install -g @guardrail-dev/core
+guardrail replay requests.jsonl</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Log File Format</h2>
+  <p>
+    The replay tool expects JSON Lines format (one JSON object per line). Each line should contain a
+    request entry:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">json</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>{<span class="prop">"method"</span>: <span class="str">"GET"</span>, <span class="prop">"url"</span>: <span class="str">"https://example.com/api"</span>, <span class="prop">"headers"</span>: {<span class="prop">"user-agent"</span>: <span class="str">"Mozilla/5.0"</span>}, <span class="prop">"options"</span>: {<span class="prop">"userId"</span>: <span class="str">"user123"</span>}}
+{<span class="prop">"method"</span>: <span class="str">"POST"</span>, <span class="prop">"url"</span>: <span class="str">"https://example.com/api/users"</span>, <span class="prop">"body"</span>: {<span class="prop">"name"</span>: <span class="str">"test"</span>}}
+{<span class="prop">"method"</span>: <span class="str">"GET"</span>, <span class="prop">"url"</span>: <span class="str">"https://example.com/api/data"</span>}</code></pre>
+  </div>
+
+  <h3>Request Entry Fields</h3>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>method</code></td>
+        <td><code>string</code></td>
+        <td>Yes</td>
+        <td>HTTP method (GET, POST, etc.)</td>
+      </tr>
+      <tr>
+        <td><code>url</code></td>
+        <td><code>string</code></td>
+        <td>Yes</td>
+        <td>Request URL</td>
+      </tr>
+      <tr>
+        <td><code>headers</code></td>
+        <td><code>object</code></td>
+        <td>No</td>
+        <td>HTTP headers</td>
+      </tr>
+      <tr>
+        <td><code>body</code></td>
+        <td><code>any</code></td>
+        <td>No</td>
+        <td>Request body</td>
+      </tr>
+      <tr>
+        <td><code>options</code></td>
+        <td><code>object</code></td>
+        <td>No</td>
+        <td>Guardrail options (userId, metadata, etc.)</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Basic Usage</h2>
+
+  <h3>Replay with Config File</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>guardrail replay requests.jsonl --config guardrail.config.json</code></pre>
+  </div>
+
+  <h3>Replay with Inline Config</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>guardrail replay requests.jsonl \
+  --config '{"rules":[{"type":"slidingWindow","interval":"1h","max":100}]}'</code></pre>
+  </div>
+
+  <h3>Output Formats</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Table format (default)</span>
+guardrail replay requests.jsonl --config config.json --format table
+
+<span class="cmt"># JSON format</span>
+guardrail replay requests.jsonl --config config.json --format json
+
+<span class="cmt"># Detailed format</span>
+guardrail replay requests.jsonl --config config.json --format detailed</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Comparing Configurations</h2>
+  <p>Compare how requests behave under different configurations to test rule changes:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>guardrail replay requests.jsonl \
+  --config guardrail.config.json \
+  --compare-config guardrail.config.new.json</code></pre>
+  </div>
+
+  <p>
+    The output will show which requests would have different decisions under the new configuration,
+    helping you understand the impact of rule changes.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Filtering Results</h2>
+  <p>Filter results to show only allowed or denied requests:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Show only denied requests</span>
+guardrail replay requests.jsonl --config config.json --filter deny
+
+<span class="cmt"># Show only allowed requests</span>
+guardrail replay requests.jsonl --config config.json --filter allow</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Programmatic Usage</h2>
+  <p>You can also use the replay functionality programmatically:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { replayRequests, formatReplayResults } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+<span class="kw">import</span> { readFileSync } <span class="kw">from</span> <span class="str">"fs"</span>;
+
+<span class="kw">const</span> config = <span class="fn">JSON.parse</span>(<span class="fn">readFileSync</span>(<span class="str">"guardrail.config.json"</span>, <span class="str">"utf-8"</span>));
+
+<span class="kw">const</span> results = <span class="kw">await</span> <span class="fn">replayRequests</span>({
+  <span class="prop">logFile</span>: <span class="str">"requests.jsonl"</span>,
+  <span class="prop">config</span>,
+  <span class="prop">output</span>: <span class="str">"detailed"</span>,
+});
+
+<span class="kw">const</span> formatted = <span class="fn">formatReplayResults</span>(results, <span class="str">"table"</span>);
+console.<span class="fn">log</span>(formatted);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Use Cases</h2>
+
+  <h3>Testing Configuration Changes</h3>
+  <p>Test how rule changes affect existing requests:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Capture production requests</span>
+<span class="cmt"># ... (log requests to requests.jsonl)</span>
+
+<span class="cmt"># Test new configuration</span>
+guardrail replay requests.jsonl \
+  --config guardrail.config.current.json \
+  --compare-config guardrail.config.new.json</code></pre>
+  </div>
+
+  <h3>Debugging Production Issues</h3>
+  <p>Replay problematic requests locally to debug:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt"># Extract denied requests from logs</span>
+grep <span class="str">"DENY"</span> production.log | guardrail replay - --config config.json</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#feature-debug" data-route="feature-debug">Visual Debug Mode</a> — Enhanced
+      debugging output
+    </li>
+    <li>
+      <a href="docs.html#feature-config-file" data-route="feature-config-file"
+        >Config File Support</a
+      >
+      — Load configurations from files
+    </li>
+    <li>
+      <a href="docs.html#configuration" data-route="configuration">Configuration</a> — Configuration
+      options
+    </li>
+  </ul>
+</section>

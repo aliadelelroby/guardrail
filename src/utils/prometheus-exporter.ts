@@ -392,7 +392,7 @@ export class StatsDMetricsCollector implements MetricsCollector {
    * Starts the flush timer
    */
   start(): void {
-    if (this.flushTimer) return;
+    if (this.flushTimer) {return;}
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
   }
 
@@ -448,7 +448,7 @@ export class StatsDMetricsCollector implements MetricsCollector {
    * Flushes buffered metrics (placeholder - actual UDP sending would require native module)
    */
   private flush(): void {
-    if (this.buffer.length === 0) return;
+    if (this.buffer.length === 0) {return;}
 
     // In a real implementation, this would send via UDP
     // For now, we log to console in debug mode

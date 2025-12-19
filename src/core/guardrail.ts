@@ -14,7 +14,7 @@ import type {
   IPGeolocationService,
   ErrorHandlingMode,
   EvaluationStrategy,
-  CustomRuleConfig,
+  DecisionContext,
 } from "../types/index";
 import type { CustomRule, CustomRuleFactory } from "../types/custom-rules";
 import { MemoryStorage } from "../storage/memory";
@@ -27,6 +27,13 @@ import { EmailValidationRule } from "../rules/email-validation";
 import { ShieldRule } from "../rules/shield";
 import { FilterRule } from "../rules/filter";
 import { extractIPFromRequest } from "../utils/fingerprint";
+import { explainDecision } from "../utils/decision-explainer";
+import { logDecision } from "../utils/debug-visualizer";
+import {
+  validateConfig,
+  formatValidationErrors,
+  ConfigValidationError,
+} from "../utils/config-validator";
 import { EnhancedIPInfo } from "../utils/ip-info";
 import { DecisionReason, findRateLimitResult } from "../utils/decision-helpers";
 import { randomUUID } from "crypto";
@@ -90,6 +97,21 @@ export class Guardrail {
   private readonly middleware: MiddlewareChain;
   private readonly customRuleFactories: Map<string, CustomRuleFactory> = new Map();
   private readonly requestCache: Map<string, { decision: Decision; expires: number }> = new Map();
+  private cacheCleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Gets the storage adapter used by this instance
+   */
+  public getStorage(): StorageAdapter {
+    return this.storage;
+  }
+
+  /**
+   * Gets the IP geolocation service used by this instance
+   */
+  public getIPService(): IPGeolocationService {
+    return this.ipService;
+  }
 
   /**
    * Generates standard security headers from a decision
@@ -104,7 +126,7 @@ export class Guardrail {
       (r) => (r.rule === "slidingWindow" || r.rule === "tokenBucket") && r.remaining !== undefined
     );
 
-    if (rateLimitResult && rateLimitResult.remaining !== undefined) {
+    if (rateLimitResult?.remaining !== undefined) {
       headers["X-RateLimit-Remaining"] = rateLimitResult.remaining.toString();
       if (rateLimitResult.reset) {
         headers["X-RateLimit-Reset"] = Math.ceil(rateLimitResult.reset / 1000).toString();
@@ -119,7 +141,7 @@ export class Guardrail {
    */
   static toWebRequest(req: {
     protocol?: string;
-    headers?: Record<string, unknown>;
+    headers?: Record<string, unknown> | Headers | any;
     get?: (name: string) => string | undefined;
     originalUrl?: string;
     url?: string;
@@ -128,7 +150,9 @@ export class Guardrail {
     raw?: unknown;
   }): Request {
     // If it's already a Web Request, return it
-    if (req instanceof Request) return req as unknown as Request;
+    if (req instanceof Request) {
+      return req as unknown as Request;
+    }
 
     const actualReq = (req.raw || req) as {
       protocol?: string;
@@ -180,8 +204,15 @@ export class Guardrail {
   constructor(config: Partial<GuardrailConfig> = {}) {
     const finalConfig = this.resolveConfig(config);
 
+    // Validate configuration
+    const validation = validateConfig(finalConfig);
+    if (!validation.valid) {
+      const errorMessage = formatValidationErrors(validation.errors);
+      throw new ConfigValidationError(errorMessage);
+    }
+
     this.storage = finalConfig.storage ?? this.autoDiscoverStorage() ?? new MemoryStorage();
-    this.ipService = finalConfig.ipService ?? new IPGeolocation();
+    this.ipService = finalConfig.ipService ?? new IPGeolocation(this.storage);
     this.vpnDetector = new VPNProxyDetection();
     this.errorHandling = finalConfig.errorHandling ?? "FAIL_OPEN";
     this.evaluationStrategy = finalConfig.evaluationStrategy ?? "SEQUENTIAL";
@@ -190,13 +221,13 @@ export class Guardrail {
     this.blacklist = finalConfig.blacklist;
 
     this.storageCircuitBreaker = new CircuitBreaker({
-      failureThreshold: 5,
-      resetTimeout: 30000,
+      failureThreshold: finalConfig.resilience?.storage?.threshold ?? 5,
+      resetTimeout: finalConfig.resilience?.storage?.timeout ?? 30000,
     });
 
     this.ipCircuitBreaker = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeout: 60000,
+      failureThreshold: finalConfig.resilience?.ip?.threshold ?? 3,
+      resetTimeout: finalConfig.resilience?.ip?.timeout ?? 60000,
     });
 
     this.metrics = this.debug
@@ -215,8 +246,37 @@ export class Guardrail {
     this.events = new GuardrailEventEmitter();
     this.middleware = new MiddlewareChain();
 
-    for (const rule of finalConfig.rules) {
+    // Start cache cleanup interval to prevent memory leaks
+    this.startCacheCleanup();
+
+    for (const rule of finalConfig.rules || []) {
       this.addRule(rule);
+    }
+  }
+
+  /**
+   * Starts the cache cleanup interval
+   */
+  private startCacheCleanup(): void {
+    // Clean up expired cache entries every 5 seconds
+    this.cacheCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.requestCache.entries()) {
+        if (entry.expires < now) {
+          this.requestCache.delete(key);
+        }
+      }
+    }, 5000);
+  }
+
+  /**
+   * Stops the cache cleanup interval (for cleanup/testing)
+   * @internal
+   */
+  stopCacheCleanup(): void {
+    if (this.cacheCleanupInterval) {
+      clearInterval(this.cacheCleanupInterval);
+      this.cacheCleanupInterval = null;
     }
   }
 
@@ -239,7 +299,7 @@ export class Guardrail {
   private autoDiscoverStorage(): StorageAdapter | undefined {
     // Check for common Redis environment variables
     const redisUrl =
-      process?.env?.REDIS_URL || process?.env?.UPSTASH_REDIS_REST_URL || process?.env?.REDIS_HOST;
+      process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_HOST;
 
     if (redisUrl) {
       try {
@@ -338,7 +398,7 @@ export class Guardrail {
       case "filter":
         return new FilterRule(rule);
       case "custom": {
-        const customRule = rule as CustomRuleConfig;
+        const customRule = rule;
         const factory = this.customRuleFactories.get(customRule.ruleType);
         if (!factory) {
           throw new Error(`Custom rule type '${customRule.ruleType}' not registered`);
@@ -451,30 +511,26 @@ export class Guardrail {
 
       if (!listCheck.allowed) {
         this.metrics.increment("guardrail.decisions.denied", { reason: "blacklist" });
-        return this.createDenyDecision(decisionId, "FILTER", ipInfo, {
-          "ip.src": ip,
-          userId: options.userId,
-          email: options.email,
-          ...options,
-        });
+        return this.createDenyDecision(
+          decisionId,
+          "FILTER",
+          ipInfo,
+          this.extractCharacteristics(ip, options),
+          options.metadata
+        );
       }
 
       if (listCheck.allowed && this.whitelist) {
         this.metrics.increment("guardrail.decisions.allowed", { reason: "whitelist" });
-        return this.createAllowDecision(decisionId, ipInfo, {
-          "ip.src": ip,
-          userId: options.userId,
-          email: options.email,
-          ...options,
-        });
+        return this.createAllowDecision(
+          decisionId,
+          ipInfo,
+          this.extractCharacteristics(ip, options),
+          options.metadata
+        );
       }
 
-      const characteristics: Record<string, string | number | undefined> = {
-        "ip.src": ip,
-        userId: options.userId,
-        email: options.email,
-        ...options,
-      };
+      const characteristics = this.extractCharacteristics(ip, options);
 
       const context: EvaluationContext = {
         request,
@@ -500,6 +556,7 @@ export class Guardrail {
         results,
         ip: enhancedIP,
         characteristics,
+        metadata: options.metadata || {},
       });
 
       const duration = Date.now() - startTime;
@@ -529,16 +586,22 @@ export class Guardrail {
         results: results.length,
       });
 
+      // Visual debug output
+      if (this.debug) {
+        logDecision(decision, {
+          color: true,
+          detailed: true,
+          timeline: true,
+          showIP: true,
+        });
+      }
+
       if (cacheKey) {
         this.requestCache.set(cacheKey, {
           decision,
           expires: Date.now() + 1000,
         });
-        setTimeout(() => {
-          if (cacheKey) {
-            this.requestCache.delete(cacheKey);
-          }
-        }, 2000);
+        // Cleanup is handled by interval-based cleanup, no need for individual timeouts
       }
 
       return decision;
@@ -555,12 +618,35 @@ export class Guardrail {
       return this.createAllowDecision(
         decisionId,
         {},
-        {
-          "ip.src": extractIPFromRequest(request),
-          ...options,
-        }
+        this.extractCharacteristics(extractIPFromRequest(request), options),
+        options.metadata
       );
     }
+  }
+
+  /**
+   * Extracts valid primitive characteristics from options
+   */
+  private extractCharacteristics(
+    ip: string,
+    options: ProtectOptions
+  ): Record<string, string | number | undefined> {
+    const characteristics: Record<string, string | number | undefined> = {
+      "ip.src": ip,
+      userId: options.userId,
+      email: options.email,
+    };
+
+    for (const [key, value] of Object.entries(options)) {
+      if (
+        key !== "metadata" &&
+        (typeof value === "string" || typeof value === "number" || value === undefined)
+      ) {
+        characteristics[key] = value;
+      }
+    }
+
+    return characteristics;
   }
 
   /**
@@ -685,6 +771,14 @@ export class Guardrail {
   ): Promise<RuleResult> {
     const startTime = Date.now();
 
+    const decisionContext: DecisionContext = {
+      characteristics: context.characteristics,
+      options: context.options,
+      metadata: context.options.metadata || {},
+      ip: new EnhancedIPInfo(context.enhancedIPInfo),
+      rule,
+    };
+
     try {
       let result: RuleResult;
 
@@ -692,7 +786,7 @@ export class Guardrail {
         case "tokenBucket": {
           const tokenEvaluator = evaluator as TokenBucketEvaluator;
           result = await this.storageCircuitBreaker.execute(
-            () => tokenEvaluator.evaluate(context.characteristics, context.options.requested),
+            () => tokenEvaluator.evaluate(decisionContext, context.options.requested),
             "storage"
           );
           break;
@@ -700,7 +794,7 @@ export class Guardrail {
         case "slidingWindow": {
           const slidingEvaluator = evaluator as SlidingWindowEvaluator;
           result = await this.storageCircuitBreaker.execute(
-            () => slidingEvaluator.evaluate(context.characteristics),
+            () => slidingEvaluator.evaluate(decisionContext),
             "storage"
           );
           break;
@@ -772,7 +866,9 @@ export class Guardrail {
         context: { ruleType: rule.type },
       });
 
-      if (this.errorHandling === "FAIL_CLOSED") {
+      const strategy = rule.errorStrategy ?? this.errorHandling;
+
+      if (strategy === "FAIL_CLOSED") {
         throw new RuleEvaluationError(
           `Rule evaluation failed: ${rule.type}`,
           rule.type,
@@ -793,7 +889,8 @@ export class Guardrail {
   private createAllowDecision(
     id: string,
     ipInfo: import("../types/index").IPInfo,
-    characteristics: Record<string, string | number | undefined>
+    characteristics: Record<string, string | number | undefined>,
+    metadata: import("../types/index").GuardrailMetadata = {}
   ): Decision {
     const enhancedIP = new EnhancedIPInfo(ipInfo);
     const reason = new DecisionReason(undefined, undefined);
@@ -805,6 +902,7 @@ export class Guardrail {
       results: [],
       ip: enhancedIP,
       characteristics,
+      metadata,
     });
   }
 
@@ -815,7 +913,8 @@ export class Guardrail {
     id: string,
     reasonType: DenialReason,
     ipInfo: import("../types/index").IPInfo,
-    characteristics: Record<string, string | number | undefined>
+    characteristics: Record<string, string | number | undefined>,
+    metadata: import("../types/index").GuardrailMetadata = {}
   ): Decision {
     const enhancedIP = new EnhancedIPInfo(ipInfo);
     const reason = new DecisionReason(reasonType, undefined);
@@ -833,6 +932,7 @@ export class Guardrail {
       ],
       ip: enhancedIP,
       characteristics,
+      metadata,
     });
   }
 
@@ -857,6 +957,7 @@ export class Guardrail {
     reason: DecisionReason;
     results: RuleResult[];
     ip: EnhancedIPInfo;
+    metadata: import("../types/index").GuardrailMetadata;
     characteristics: Record<string, string | number | undefined>;
   }): Decision {
     return {
@@ -866,6 +967,9 @@ export class Guardrail {
       },
       isDenied(): boolean {
         return this.conclusion === "DENY";
+      },
+      explain(): string {
+        return explainDecision(this);
       },
     };
   }

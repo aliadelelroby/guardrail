@@ -1,0 +1,197 @@
+<header class="docs-header">
+  <h1 class="docs-title">on()</h1>
+  <p class="docs-description">Registers an event handler for Guardrail events.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>on()</code> method allows you to listen to Guardrail events such as rule evaluations,
+    decisions, and errors. This is useful for logging, monitoring, and custom integrations.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>gr.<span class="fn">on</span>(<span class="str">"decision.denied"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">"Request denied:"</span>, event.decision);
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">on</span>(
+  eventType: GuardrailEventUnion[<span class="str">"type"</span>],
+  handler: (event: GuardrailEventUnion) => <span class="kw">void</span> | Promise&lt;<span class="kw">void</span>&gt;
+): () => <span class="kw">void</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>eventType</code></td>
+        <td><code>string</code></td>
+        <td>The event type to listen for</td>
+      </tr>
+      <tr>
+        <td><code>handler</code></td>
+        <td><code>Function</code></td>
+        <td>Event handler function</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>Returns an unsubscribe function that can be called to remove the event handler.</p>
+</section>
+
+<section class="docs-section">
+  <h2>Available Events</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Description</th>
+        <th>Event Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>"rule.evaluate"</code></td>
+        <td>Fired when a rule starts evaluation</td>
+        <td><code>{ ruleType, request }</code></td>
+      </tr>
+      <tr>
+        <td><code>"rule.allow"</code></td>
+        <td>Fired when a rule allows a request</td>
+        <td><code>{ ruleType, result }</code></td>
+      </tr>
+      <tr>
+        <td><code>"rule.deny"</code></td>
+        <td>Fired when a rule denies a request</td>
+        <td><code>{ ruleType, result, reason }</code></td>
+      </tr>
+      <tr>
+        <td><code>"decision.allowed"</code></td>
+        <td>Fired when a request is allowed</td>
+        <td><code>{ decision }</code></td>
+      </tr>
+      <tr>
+        <td><code>"decision.denied"</code></td>
+        <td>Fired when a request is denied</td>
+        <td><code>{ decision }</code></td>
+      </tr>
+      <tr>
+        <td><code>"storage.error"</code></td>
+        <td>Fired when storage operations fail</td>
+        <td><code>{ error, operation }</code></td>
+      </tr>
+      <tr>
+        <td><code>"ip-lookup.error"</code></td>
+        <td>Fired when IP lookup fails</td>
+        <td><code>{ error, ip }</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Listen to Denied Requests</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>gr.<span class="fn">on</span>(<span class="str">"decision.denied"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">"Request denied:"</span>, {
+    <span class="prop">id</span>: event.decision.id,
+    <span class="prop">reason</span>: event.decision.reason,
+    <span class="prop">ip</span>: event.decision.ip.address,
+  });
+});</code></pre>
+  </div>
+
+  <h3>Monitor Rule Evaluations</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>gr.<span class="fn">on</span>(<span class="str">"rule.evaluate"</span>, (event) => {
+  console.<span class="fn">log</span>(<span class="str">`Evaluating rule: </span>${event.ruleType}<span class="str">`</span>);
+});
+
+gr.<span class="fn">on</span>(<span class="str">"rule.deny"</span>, (event) => {
+  console.<span class="fn">warn</span>(<span class="str">`Rule </span>${event.ruleType}<span class="str"> denied request: </span>${event.reason}<span class="str">`</span>);
+});</code></pre>
+  </div>
+
+  <h3>Unsubscribe from Events</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> unsubscribe = gr.<span class="fn">on</span>(<span class="str">"decision.denied"</span>, (event) => {
+  console.<span class="fn">log</span>(event);
+});
+
+<span class="cmt">// Later, remove the handler</span>
+<span class="fn">unsubscribe</span>();</code></pre>
+  </div>
+
+  <h3>Error Monitoring</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>gr.<span class="fn">on</span>(<span class="str">"storage.error"</span>, (event) => {
+  console.<span class="fn">error</span>(<span class="str">"Storage error:"</span>, event.error);
+  <span class="cmt">// Send to error tracking service</span>
+});
+
+gr.<span class="fn">on</span>(<span class="str">"ip-lookup.error"</span>, (event) => {
+  console.<span class="fn">warn</span>(<span class="str">`IP lookup failed for </span>${event.ip}<span class="str">:`</span>, event.error);
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#util-events" data-route="util-events">Events</a> — Event system utilities
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

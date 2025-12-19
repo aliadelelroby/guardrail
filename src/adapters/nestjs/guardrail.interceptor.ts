@@ -3,16 +3,19 @@
  * @module adapters/nestjs
  */
 
-import type { NestInterceptor, ExecutionContext, CallHandler } from "@nestjs/common";
-import { Injectable, SetMetadata } from "@nestjs/common";
+import {
+  Injectable,
+  SetMetadata,
+  type NestInterceptor,
+  type ExecutionContext,
+  type CallHandler,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { Observer } from "rxjs";
-import { Observable } from "rxjs";
+import { Observable, type Observer } from "rxjs";
 import { tap } from "rxjs/operators";
 import { Guardrail } from "../../core/guardrail";
 import type { ProtectOptions, Decision } from "../../types/index";
 import type { NestRequest } from "./types";
-import "./nestjs.d";
 
 /**
  * Metadata key for guardrail interceptor options

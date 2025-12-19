@@ -1,0 +1,177 @@
+<header class="docs-header">
+  <h1 class="docs-title">window()</h1>
+  <p class="docs-description">
+    Sliding window rate limiting rule that limits the number of requests within a time window.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>window()</code> rule implements sliding window rate limiting, which allows a maximum
+    number of requests within a specified time interval. This is ideal for simple rate limiting
+    scenarios.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">window</span>({
+      <span class="prop">interval</span>: <span class="str">"10m"</span>,
+      <span class="prop">max</span>: <span class="num">100</span>,
+    }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">window</span>(config: SlidingWindowConfig): SlidingWindowConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>interval</code></td>
+        <td><code>string</code></td>
+        <td>Time window (e.g., "10m", "1h", "30s")</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>max</code></td>
+        <td><code>number</code></td>
+        <td>Maximum number of requests in the window</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>by</code></td>
+        <td><code>string[]</code></td>
+        <td>Rate limit by IP, user ID, or custom identifier</td>
+        <td>No (default: ["ip.src"])</td>
+      </tr>
+      <tr>
+        <td><code>mode</code></td>
+        <td><code>"LIVE" | "DRY_RUN"</code></td>
+        <td>Operation mode</td>
+        <td>No (default: "LIVE")</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Per-IP Rate Limiting</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">window</span>({
+  <span class="prop">interval</span>: <span class="str">"10m"</span>,
+  <span class="prop">max</span>: <span class="num">100</span>,  <span class="cmt">// 100 requests per 10 minutes per IP</span>
+})</code></pre>
+  </div>
+
+  <h3>Per-User Rate Limiting</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">window</span>({
+  <span class="prop">interval</span>: <span class="str">"1h"</span>,
+  <span class="prop">max</span>: <span class="num">1000</span>,
+  <span class="prop">by</span>: [<span class="str">"userId"</span>],  <span class="cmt">// Rate limit per user</span>
+})</code></pre>
+  </div>
+
+  <h3>Handling Rate Limits</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+<span class="kw">if</span> (decision.reason.<span class="fn">isRateLimit</span>()) {
+  <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+  <span class="kw">const</span> reset = decision.reason.<span class="fn">getReset</span>();
+  
+  <span class="kw">return</span> Response.<span class="fn">json</span>(
+    { <span class="prop">error</span>: <span class="str">"Rate limit exceeded"</span>, remaining, reset },
+    { <span class="prop">status</span>: <span class="num">429</span> }
+  );
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Time Interval Format</h2>
+  <p>Intervals can be specified using the following formats:</p>
+  <ul>
+    <li><code>"30s"</code> — 30 seconds</li>
+    <li><code>"5m"</code> — 5 minutes</li>
+    <li><code>"1h"</code> — 1 hour</li>
+    <li><code>"24h"</code> — 24 hours</li>
+    <li><code>"7d"</code> — 7 days</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Sliding Window vs Token Bucket</h2>
+  <p><strong>Sliding Window</strong> is simpler and ideal for:</p>
+  <ul>
+    <li>Simple rate limiting (X requests per Y time)</li>
+    <li>API endpoint protection</li>
+    <li>When you need predictable limits</li>
+  </ul>
+  <p><strong>Token Bucket</strong> is better for:</p>
+  <ul>
+    <li>Burst handling</li>
+    <li>AI quota control</li>
+    <li>Variable consumption rates</li>
+  </ul>
+  <p>
+    See <a href="docs.html#rule-bucket" data-route="rule-bucket"><code>bucket()</code></a> for token
+    bucket rate limiting.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#rule-bucket" data-route="rule-bucket"><code>bucket()</code></a> — Token
+      bucket rate limiting
+    </li>
+    <li>
+      <a href="docs.html#storage-redis" data-route="storage-redis">RedisStorage</a> — Distributed
+      storage
+    </li>
+  </ul>
+</section>

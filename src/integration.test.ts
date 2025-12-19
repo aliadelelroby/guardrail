@@ -1,16 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { guardrail } from "./index";
-import { shield, detectBot, slidingWindow, tokenBucket, validateEmail } from "./rules/index";
+import { shield, bot, window, bucket, email } from "./rules/index";
 import { MemoryStorage } from "./storage/memory";
 
 describe("Integration Tests", () => {
   it("should work with multiple rules", async () => {
     const gr = guardrail({
-      rules: [
-        shield(),
-        detectBot({ allow: [] }),
-        slidingWindow({ interval: "1m", max: 5 }),
-      ],
+      rules: [shield(), bot({ allow: [] }), window({ interval: "1m", max: 5 })],
     });
 
     const request = new Request("https://example.com/api", {
@@ -26,10 +22,7 @@ describe("Integration Tests", () => {
 
   it("should deny on first rule violation", async () => {
     const gr = guardrail({
-      rules: [
-        shield(),
-        detectBot({ allow: [] }),
-      ],
+      rules: [shield(), bot({ allow: [] })],
     });
 
     const request = new Request("https://example.com/api?q=SELECT * FROM users", {
@@ -47,7 +40,7 @@ describe("Integration Tests", () => {
   it("should handle email validation", async () => {
     const gr = guardrail({
       rules: [
-        validateEmail({
+        email({
           block: ["DISPOSABLE", "INVALID"],
         }),
       ],
@@ -65,8 +58,8 @@ describe("Integration Tests", () => {
   it("should handle token bucket for AI quota", async () => {
     const gr = guardrail({
       rules: [
-        tokenBucket({
-          characteristics: ["userId"],
+        bucket({
+          by: ["userId"],
           refillRate: 1000,
           interval: "1h",
           capacity: 5000,
@@ -112,7 +105,7 @@ describe("Integration Tests", () => {
     const storage = new MemoryStorage();
     const gr = guardrail({
       storage,
-      rules: [slidingWindow({ interval: "1m", max: 3 })],
+      rules: [window({ interval: "1m", max: 3 })],
     });
 
     // Use POST to bypass request caching
@@ -136,8 +129,8 @@ describe("Integration Tests", () => {
   it("should handle DRY_RUN mode", async () => {
     const gr = guardrail({
       rules: [
-        detectBot({ allow: [], mode: "DRY_RUN" }),
-        slidingWindow({ interval: "1m", max: 1, mode: "DRY_RUN" }),
+        bot({ allow: [], mode: "DRY_RUN" }),
+        window({ interval: "1m", max: 1, mode: "DRY_RUN" }),
       ],
     });
 

@@ -8,9 +8,12 @@ import type {
   RuleResult,
   DecisionConclusion,
   StorageAdapter,
+  DecisionContext,
 } from "../types/index";
 import { parseInterval } from "../utils/time";
 import { generateFingerprint } from "../utils/fingerprint";
+import { resolveValue } from "../utils/resolver";
+import { safeJsonParse } from "../utils/safe-json";
 
 /**
  * Token bucket state stored in storage
@@ -36,38 +39,67 @@ export class TokenBucketRule {
 
   /**
    * Evaluates the token bucket rule
-   * @param characteristics - Request characteristics for key generation
+   * @param context - Decision context for dynamic value resolution
    * @param requested - Number of tokens requested (default: 1)
    * @returns Promise resolving to rule result
    */
-  async evaluate(
-    characteristics: Record<string, string | number | undefined>,
-    requested: number = 1
-  ): Promise<RuleResult> {
-    const fingerprint = generateFingerprint(this.config.characteristics, characteristics);
-    const key = `token-bucket:${fingerprint}`;
+  async evaluate(context: DecisionContext, requested: number = 1): Promise<RuleResult> {
+    const capacity = await resolveValue(this.config.capacity, context, 100);
+    const refillRate = await resolveValue(this.config.refillRate, context, 10);
 
+    const fingerprint = generateFingerprint(this.config.by || ["ip.src"], context.characteristics);
+
+    // Create a unique discriminator for this rule instance to prevent key collisions
+    const discriminator =
+      typeof this.config.capacity === "string" ? `:${this.config.capacity}` : "";
+
+    const key = `token-bucket:${this.config.interval}${discriminator}:${fingerprint}`;
     const intervalMs = parseInterval(this.config.interval);
+
+    // 1. Use optimized atomic token bucket if supported by storage
+    if (this.storage instanceof Object && "tokenBucket" in this.storage) {
+      const result = await (this.storage as any).tokenBucket(
+        key,
+        capacity,
+        refillRate,
+        intervalMs,
+        requested
+      );
+      const ruleResult: RuleResult = {
+        rule: "tokenBucket",
+        conclusion: result.allowed ? "ALLOW" : "DENY",
+        reason: result.allowed ? undefined : "QUOTA",
+        remaining: result.remaining,
+        reset: result.reset,
+      };
+      return this.config.mode === "DRY_RUN" ? { ...ruleResult, conclusion: "ALLOW" } : ruleResult;
+    }
+
+    // 2. Fallback to standard implementation for generic storage
     const now = Date.now();
 
     const stateStr = await this.storage.get(key);
     let state: TokenBucketState;
 
     if (stateStr) {
-      state = JSON.parse(stateStr);
+      try {
+        state = safeJsonParse<TokenBucketState>(stateStr);
+      } catch {
+        state = { tokens: capacity, lastRefill: now };
+      }
     } else {
       state = {
-        tokens: this.config.capacity,
+        tokens: capacity,
         lastRefill: now,
       };
     }
 
     const timePassed = now - state.lastRefill;
     const refills = Math.floor(timePassed / intervalMs);
-    const tokensToAdd = refills * this.config.refillRate;
+    const tokensToAdd = refills * refillRate;
 
     if (tokensToAdd > 0) {
-      state.tokens = Math.min(this.config.capacity, state.tokens + tokensToAdd);
+      state.tokens = Math.min(capacity, state.tokens + tokensToAdd);
       state.lastRefill = now - (timePassed % intervalMs);
     }
 

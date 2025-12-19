@@ -137,11 +137,7 @@ const PATH_TRAVERSAL_PATTERNS = [
 /**
  * LDAP injection patterns
  */
-const LDAP_INJECTION_PATTERNS = [
-  /[()\\*|&=!<>~]/,
-  /\x00/,
-  /%00/,
-];
+const LDAP_INJECTION_PATTERNS = [/[()\\*|&=!<>~]/, /\x00/, /%00/];
 
 /**
  * XML/XXE injection patterns
@@ -159,11 +155,7 @@ const XXE_PATTERNS = [
 /**
  * Header injection patterns
  */
-const HEADER_INJECTION_PATTERNS = [
-  /[\r\n]/,
-  /%0d|%0a/i,
-  /\\r|\\n/,
-];
+const HEADER_INJECTION_PATTERNS = [/[\r\n]/, /%0d|%0a/i, /\\r|\\n/];
 
 /**
  * Log injection patterns
@@ -240,14 +232,14 @@ export interface ShieldDetectionResult {
  */
 const CATEGORY_PATTERNS: Record<ShieldCategory, RegExp[]> = {
   "sql-injection": SQL_INJECTION_PATTERNS,
-  "xss": XSS_PATTERNS,
+  xss: XSS_PATTERNS,
   "command-injection": COMMAND_INJECTION_PATTERNS,
   "path-traversal": PATH_TRAVERSAL_PATTERNS,
   "ldap-injection": LDAP_INJECTION_PATTERNS,
-  "xxe": XXE_PATTERNS,
+  xxe: XXE_PATTERNS,
   "header-injection": HEADER_INJECTION_PATTERNS,
   "log-injection": LOG_INJECTION_PATTERNS,
-  "anomaly": ANOMALY_PATTERNS,
+  anomaly: ANOMALY_PATTERNS,
 };
 
 /**
@@ -265,12 +257,7 @@ export class ShieldRule {
   constructor(config: ShieldRuleConfig) {
     this.config = config;
     this.categories = new Set(
-      config.categories || [
-        "sql-injection",
-        "xss",
-        "command-injection",
-        "path-traversal",
-      ]
+      config.categories || ["sql-injection", "xss", "command-injection", "path-traversal"]
     );
     this.patterns = new Map();
     this.scanBody = config.scanBody ?? true;
@@ -279,6 +266,13 @@ export class ShieldRule {
     this.skipHeaders = new Set(
       (config.skipHeaders || ["authorization", "cookie"]).map((h) => h.toLowerCase())
     );
+
+    // Validate and build pattern map
+    if (config.customPatterns) {
+      for (const pattern of config.customPatterns) {
+        this.validateRegexPattern(pattern);
+      }
+    }
 
     // Build pattern map
     for (const category of this.categories) {
@@ -315,7 +309,9 @@ export class ShieldRule {
   private async detect(request: Request): Promise<ShieldDetectionResult> {
     // Check URL
     const urlResult = this.scanText(request.url, "url");
-    if (urlResult.detected) return urlResult;
+    if (urlResult.detected) {
+      return urlResult;
+    }
 
     // Check query parameters
     try {
@@ -323,7 +319,9 @@ export class ShieldRule {
       const queryString = url.searchParams.toString();
       if (queryString) {
         const queryResult = this.scanText(decodeURIComponent(queryString), "query");
-        if (queryResult.detected) return queryResult;
+        if (queryResult.detected) {
+          return queryResult;
+        }
       }
     } catch {
       // Invalid URL, scan as-is
@@ -332,21 +330,69 @@ export class ShieldRule {
     // Check headers
     if (this.scanHeaders) {
       for (const [name, value] of request.headers.entries()) {
-        if (this.skipHeaders.has(name.toLowerCase())) continue;
+        if (this.skipHeaders.has(name.toLowerCase())) {
+          continue;
+        }
         const headerResult = this.scanText(value, "headers");
-        if (headerResult.detected) return headerResult;
+        if (headerResult.detected) {
+          return headerResult;
+        }
       }
     }
 
     // Check body
     if (this.scanBody && request.body) {
       try {
+        // Check Content-Length header first to prevent reading large bodies
+        const contentLength = request.headers.get("content-length");
+        if (contentLength) {
+          const size = parseInt(contentLength, 10);
+          if (!isNaN(size) && size > this.maxBodySize) {
+            // Body too large, skip scanning but don't treat as attack
+            return { detected: false };
+          }
+        }
+
+        // For requests without Content-Length, use streaming with size limit
         const clonedRequest = request.clone();
-        const bodyText = await clonedRequest.text();
-        
-        if (bodyText.length <= this.maxBodySize) {
-          const bodyResult = this.scanText(bodyText, "body");
-          if (bodyResult.detected) return bodyResult;
+        const reader = clonedRequest.body?.getReader();
+        if (!reader) {
+          return { detected: false };
+        }
+
+        let bodyText = "";
+        let totalSize = 0;
+        const decoder = new TextDecoder();
+
+        try {
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            totalSize += value.length;
+            if (totalSize > this.maxBodySize) {
+              // Body exceeds limit, stop reading
+              void reader.cancel();
+              return { detected: false };
+            }
+
+            bodyText += decoder.decode(value, { stream: true });
+          }
+
+          // Decode any remaining bytes
+          bodyText += decoder.decode();
+
+          if (bodyText.length <= this.maxBodySize) {
+            const bodyResult = this.scanText(bodyText, "body");
+            if (bodyResult.detected) {
+              return bodyResult;
+            }
+          }
+        } finally {
+          reader.releaseLock();
         }
       } catch {
         // Body not readable, skip
@@ -357,17 +403,61 @@ export class ShieldRule {
   }
 
   /**
-   * Scans text for malicious patterns
+   * Validates a regex pattern to prevent ReDoS
+   */
+  private validateRegexPattern(pattern: RegExp): void {
+    const source = pattern.source;
+
+    // Maximum pattern length
+    if (source.length > 1000) {
+      throw new Error("Regex pattern exceeds maximum length of 1000 characters");
+    }
+
+    // Check for dangerous nested quantifiers
+    const dangerousPatterns = [
+      /\([^)]*\+[^)]*\)\+/, // (a+)+
+      /\([^)]*\*[^)]*\)\*/, // (a*)*
+      /\([^)]*\{[^}]*\}[^)]*\)\{[^}]*\}/, // (a{1,}){1,}
+      /\([^)]*\+[^)]*\)\*/, // (a+)*
+      /\([^)]*\*[^)]*\)\+/, // (a*)+
+    ];
+
+    for (const dangerousPattern of dangerousPatterns) {
+      if (dangerousPattern.test(source)) {
+        throw new Error(
+          "Regex pattern contains dangerous nested quantifiers that could cause ReDoS"
+        );
+      }
+    }
+
+    // Check for excessive quantifiers
+    const quantifierCount = (source.match(/[+*?]\{/g) || []).length;
+    if (quantifierCount > 20) {
+      throw new Error("Regex pattern contains too many quantifiers");
+    }
+  }
+
+  /**
+   * Scans text for malicious patterns with timeout protection
    */
   private scanText(
     text: string,
     location: ShieldDetectionResult["location"]
   ): ShieldDetectionResult {
+    // Limit text length to prevent DoS
+    const maxTextLength = 100000; // 100KB
+    const textToScan = text.length > maxTextLength ? text.substring(0, maxTextLength) : text;
+
     // Check exclusions first
     if (this.config.excludePatterns) {
       for (const pattern of this.config.excludePatterns) {
-        if (pattern.test(text)) {
-          return { detected: false };
+        try {
+          if (this.executeRegexWithTimeout(pattern, textToScan)) {
+            return { detected: false };
+          }
+        } catch {
+          // If regex times out, continue to next pattern
+          continue;
         }
       }
     }
@@ -375,20 +465,56 @@ export class ShieldRule {
     // Check each category
     for (const [category, patterns] of this.patterns) {
       for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          return {
-            detected: true,
-            category,
-            pattern: pattern.source,
-            location,
-            matchedValue: match[0].substring(0, 100), // Limit length
-          };
+        try {
+          const match = this.executeRegexWithTimeout(pattern, textToScan);
+          if (match) {
+            const matchedText = typeof match === "string" ? match : match[0] || "";
+            return {
+              detected: true,
+              category,
+              pattern: pattern.source,
+              location,
+              matchedValue: matchedText.substring(0, 100), // Limit length
+            };
+          }
+        } catch {
+          // If regex times out, continue to next pattern
+          continue;
         }
       }
     }
 
     return { detected: false };
+  }
+
+  /**
+   * Executes regex with timeout to prevent DoS
+   */
+  private executeRegexWithTimeout(
+    regex: RegExp,
+    text: string,
+    timeoutMs: number = 100
+  ): RegExpMatchArray | null {
+    const startTime = Date.now();
+
+    // For small texts, execute directly
+    if (text.length < 1000) {
+      const result = text.match(regex);
+      if (Date.now() - startTime > timeoutMs) {
+        throw new Error("Regex execution timeout");
+      }
+      return result;
+    }
+
+    // For larger texts, limit the search
+    const testText = text.substring(0, Math.min(text.length, 10000));
+    const result = testText.match(regex);
+
+    if (Date.now() - startTime > timeoutMs) {
+      throw new Error("Regex execution timeout");
+    }
+
+    return result;
   }
 }
 
@@ -396,11 +522,15 @@ export class ShieldRule {
  * Creates a shield rule
  */
 export function shield(
-  config: Omit<ShieldRuleConfig, "type" | "mode"> & { mode?: "LIVE" | "DRY_RUN" } = {}
+  config: Omit<ShieldRuleConfig, "type" | "mode"> & {
+    mode?: "LIVE" | "DRY_RUN";
+    errorStrategy?: ShieldRuleConfig["errorStrategy"];
+  } = {}
 ): ShieldRuleConfig {
   return {
     type: "shield",
     mode: config.mode || "LIVE",
+    errorStrategy: config.errorStrategy,
     ...config,
   };
 }

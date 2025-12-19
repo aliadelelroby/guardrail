@@ -1,0 +1,210 @@
+<header class="docs-header">
+  <h1 class="docs-title">decision.explain()</h1>
+  <p class="docs-description">
+    Get human-readable explanations of Guardrail decisions to understand why requests were allowed
+    or denied.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>explain()</code> method on <code>Decision</code> objects provides human-readable
+    explanations of why a request was allowed or denied. This is useful for debugging, logging, and
+    providing clear feedback to users.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+
+<span class="cmt">// Get a human-readable explanation</span>
+<span class="kw">const</span> explanation = decision.<span class="fn">explain</span>();
+console.<span class="fn">log</span>(explanation);
+<span class="cmt">// "Request allowed: All rules passed. All 3 rule(s) passed. IP: United States, New York (not VPN/Proxy)"</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Usage</h2>
+  <p>
+    Every <code>Decision</code> object returned from <code>protect()</code> includes an
+    <code>explain()</code> method:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+<span class="kw">import</span> { window, shield, bot } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/rules"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [<span class="fn">shield</span>(), <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1h"</span>, <span class="prop">max</span>: <span class="num">100</span> }), <span class="fn">bot</span>()],
+});
+
+<span class="kw">const</span> request = <span class="kw">new</span> <span class="fn">Request</span>(<span class="str">"https://example.com/api"</span>);
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(request);
+
+<span class="cmt">// Get explanation</span>
+<span class="kw">const</span> explanation = decision.<span class="fn">explain</span>();
+console.<span class="fn">log</span>(explanation);</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Explanation Format</h2>
+  <p>Explanations include:</p>
+  <ul>
+    <li><strong>Decision conclusion</strong> — Whether the request was allowed or denied</li>
+    <li><strong>Denial reason</strong> — Why the request was denied (if applicable)</li>
+    <li><strong>Rule summary</strong> — How many rules passed or failed</li>
+    <li><strong>Rate limit status</strong> — Remaining requests (if rate limited)</li>
+    <li><strong>IP information</strong> — Location and threat indicators</li>
+  </ul>
+
+  <h3>Allowed Request</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Example output:</span>
+<span class="str">"Request allowed: All rules passed. All 3 rule(s) passed. IP: United States, New York (not VPN/Proxy)"</span></code></pre>
+  </div>
+
+  <h3>Denied Request (Rate Limit)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Example output:</span>
+<span class="str">"Request denied: Rate limit exceeded. 0 remaining requests. All 2 rule(s) passed, 1 rule(s) failed."</span></code></pre>
+  </div>
+
+  <h3>Denied Request (Bot Detection)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Example output:</span>
+<span class="str">"Request denied: Bot detected. All 1 rule(s) passed, 1 rule(s) failed."</span></code></pre>
+  </div>
+
+  <h3>Denied Request (Quota)</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Example output:</span>
+<span class="str">"Request denied: Quota exceeded. 5 remaining requests."</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Use Cases</h2>
+
+  <h3>Debugging</h3>
+  <p>Use explanations to debug why requests are being denied:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+  <span class="kw">const</span> explanation = decision.<span class="fn">explain</span>();
+  console.<span class="fn">error</span>(<span class="str">"Request denied:"</span>, explanation);
+  <span class="cmt">// Log to your monitoring system</span>
+}</code></pre>
+  </div>
+
+  <h3>User Feedback</h3>
+  <p>Provide clear error messages to users:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+  <span class="kw">const</span> explanation = decision.<span class="fn">explain</span>();
+  
+  <span class="kw">return</span> Response.<span class="fn">json</span>(
+    {
+      <span class="prop">error</span>: <span class="str">"Request denied"</span>,
+      <span class="prop">reason</span>: explanation,
+    },
+    { <span class="prop">status</span>: <span class="num">429</span> }
+  );
+}</code></pre>
+  </div>
+
+  <h3>Logging</h3>
+  <p>Include explanations in your application logs:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(request);
+<span class="kw">const</span> explanation = decision.<span class="fn">explain</span>();
+
+<span class="cmt">// Log to your logging system</span>
+logger.<span class="fn">info</span>({
+  <span class="prop">decisionId</span>: decision.id,
+  <span class="prop">conclusion</span>: decision.conclusion,
+  <span class="prop">explanation</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>IP Information</h2>
+  <p>
+    Explanations include IP geolocation information when available, including country, city, and
+    threat indicators (VPN, Proxy, Tor, etc.):
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Example with IP info:</span>
+<span class="str">"Request allowed: All rules passed. IP: United States, New York (not VPN/Proxy)"</span>
+
+<span class="cmt">// Example with VPN detected:</span>
+<span class="str">"Request allowed: All rules passed. IP: Russia, Moscow (VPN detected)"</span>
+
+<span class="cmt">// Example with Tor:</span>
+<span class="str">"Request denied: Bot detected. IP: Unknown (Tor detected)"</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests and get decisions
+    </li>
+    <li>
+      <a href="docs.html#feature-debug" data-route="feature-debug">Visual Debug Mode</a> — Enhanced
+      debugging with structured output
+    </li>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instances
+    </li>
+  </ul>
+</section>

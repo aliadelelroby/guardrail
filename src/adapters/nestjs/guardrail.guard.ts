@@ -3,21 +3,24 @@
  * @module adapters/nestjs
  */
 
-import type { CanActivate, ExecutionContext } from "@nestjs/common";
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Optional, type CanActivate, type ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Guardrail } from "../../core/guardrail";
 import { GuardrailPresets } from "../../core/presets";
-import type { ProtectOptions, RuleResult, GuardrailRule, Decision } from "../../types/index";
+import type { ProtectOptions, GuardrailRule, Decision } from "../../types/index";
 import type { NestRequest, NestResponse } from "./types";
 import { GUARDRAIL_OPTIONS, GUARDRAIL_RULES, SKIP_GUARDRAIL, GUARDRAIL_PRESET } from "./decorators";
-import type { GuardrailModuleOptions } from "./guardrail.module";
+import { GuardrailModuleOptions } from "./guardrail.module";
+
+import { resolveProtectOptions, formatDenialResponse } from "../../utils/adapter-utils";
 
 /**
  * Guardrail guard for Nest.js
  */
 @Injectable()
 export class GuardrailGuard implements CanActivate {
+  private static readonly instanceCache = new Map<string, Guardrail>();
+
   constructor(
     private readonly guardrail: Guardrail,
     private readonly reflector: Reflector,
@@ -46,13 +49,7 @@ export class GuardrailGuard implements CanActivate {
       this.reflector.get<ProtectOptions>(GUARDRAIL_OPTIONS, context.getClass()) ||
       {};
 
-    const options: ProtectOptions = { ...decoratorOptions };
-    if (!options.userId && this.moduleOptions?.userExtractor) {
-      options.userId = this.moduleOptions.userExtractor(request);
-    }
-    if (!options.email && this.moduleOptions?.emailExtractor) {
-      options.email = this.moduleOptions.emailExtractor(request);
-    }
+    const options = resolveProtectOptions(request, this.moduleOptions || {}, decoratorOptions);
 
     // 3. Resolve Rules (Merging module, class, and method rules)
     const classRules =
@@ -67,25 +64,31 @@ export class GuardrailGuard implements CanActivate {
 
     if (presetName && presetName in GuardrailPresets) {
       const preset = GuardrailPresets[presetName as keyof typeof GuardrailPresets]();
-      finalRules = [...preset.rules];
+      finalRules = [...(preset.rules || [])];
     } else if (methodRules.length > 0 || classRules.length > 0) {
-      // Merge rules: method rules override class rules of same type if needed,
-      // but here we just concatenate for simplicity as Guardrail handles multiple rules.
       finalRules = [...classRules, ...methodRules];
     } else if (this.moduleOptions?.autoProtect) {
-      // Auto-protect with API preset if no rules defined
-      finalRules = [...GuardrailPresets.api().rules];
+      finalRules = [...(GuardrailPresets.api().rules || [])];
     }
 
     const webRequest = this.createWebRequest(request);
 
     let decision: Decision;
     if (finalRules.length > 0) {
-      // Create a temporary instance for specific rules if they differ from global
-      const tempGuardrail = new Guardrail({
-        ...this.moduleOptions,
-        rules: finalRules,
-      });
+      // Use cached instance if rules are the same
+      const rulesKey = JSON.stringify(finalRules);
+      let tempGuardrail = GuardrailGuard.instanceCache.get(rulesKey);
+
+      if (!tempGuardrail) {
+        tempGuardrail = new Guardrail({
+          ...this.moduleOptions,
+          storage: this.guardrail.getStorage(),
+          ipService: this.guardrail.getIPService(),
+          rules: finalRules,
+        });
+        GuardrailGuard.instanceCache.set(rulesKey, tempGuardrail);
+      }
+
       decision = await tempGuardrail.protect(webRequest, options);
     } else {
       decision = await this.guardrail.protect(webRequest, options);
@@ -110,8 +113,11 @@ export class GuardrailGuard implements CanActivate {
    */
   private setGuardrailHeaders(response: NestResponse, decision: Decision): void {
     const setHeader = (name: string, value: string) => {
-      if (response.set) response.set(name, value);
-      else if (response.header) response.header(name, value);
+      if (response.set) {
+        response.set(name, value);
+      } else if (response.header) {
+        response.header(name, value);
+      }
     };
 
     setHeader("X-Guardrail-Id", decision.id);
@@ -121,7 +127,7 @@ export class GuardrailGuard implements CanActivate {
       (r) => (r.rule === "slidingWindow" || r.rule === "tokenBucket") && r.remaining !== undefined
     );
 
-    if (rateLimitResult && rateLimitResult.remaining !== undefined) {
+    if (rateLimitResult?.remaining !== undefined) {
       setHeader("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
       if (rateLimitResult.reset) {
         setHeader("X-RateLimit-Reset", Math.ceil(rateLimitResult.reset / 1000).toString());
@@ -133,40 +139,8 @@ export class GuardrailGuard implements CanActivate {
    * Handles request denial with appropriate status and message
    */
   private handleDenial(response: NestResponse, decision: Decision): void {
-    if (decision.reason.isRateLimit() || decision.reason.isQuota()) {
-      response.status(429).json({
-        error: "Rate limit exceeded",
-        message: "Too many requests. Please try again later.",
-        remaining: decision.reason.getRemaining() ?? 0,
-      });
-    } else if (decision.reason.isBot()) {
-      response.status(403).json({
-        error: "Forbidden",
-        message: "Automated access is restricted.",
-      });
-    } else if (decision.reason.isShield()) {
-      response.status(403).json({
-        error: "Forbidden",
-        message: "Potential security threat detected.",
-      });
-    } else if (decision.reason.isFilter()) {
-      // Check if it's VPN/Country block
-      const filterResult = decision.results.find(
-        (r) => r.rule === "filter" && r.conclusion === "DENY"
-      );
-      response.status(403).json({
-        error: "Forbidden",
-        message:
-          filterResult?.reason === "FILTER"
-            ? "Access restricted from your location or network."
-            : "Request denied by filter policy.",
-      });
-    } else {
-      response.status(403).json({
-        error: "Forbidden",
-        message: "Request denied by security policy.",
-      });
-    }
+    const { status, body } = formatDenialResponse(decision);
+    response.status(status).json(body);
   }
 
   /**

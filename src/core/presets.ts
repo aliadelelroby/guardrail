@@ -4,13 +4,7 @@
  */
 
 import type { GuardrailConfig } from "../types/index";
-import { 
-  shield, 
-  detectBot, 
-  slidingWindow,
-  tokenBucket,
-  validateEmail
-} from "../rules/index";
+import { shield, bot, window, bucket, email } from "../rules/index";
 
 /**
  * Pre-configured security policies for different environment types
@@ -25,8 +19,8 @@ export const GuardrailPresets = {
   api: (): GuardrailConfig => ({
     rules: [
       shield(),
-      detectBot({ allow: [] }), // Block generic bots
-      slidingWindow({ interval: "1m", max: 100 }),
+      bot({ allow: [] }), // Block generic bots
+      window({ interval: "1m", max: 100 }),
     ],
     errorHandling: "FAIL_OPEN",
     evaluationStrategy: "SEQUENTIAL",
@@ -44,10 +38,10 @@ export const GuardrailPresets = {
         scanBody: true,
         scanHeaders: true,
       }),
-      detectBot({
+      bot({
         allow: ["Googlebot", "Bingbot", "DuckDuckBot", "Baiduspider", "YandexBot"],
       }),
-      slidingWindow({ interval: "1m", max: 1000 }),
+      window({ interval: "1m", max: 1000 }),
     ],
     errorHandling: "FAIL_OPEN",
     evaluationStrategy: "PARALLEL",
@@ -64,20 +58,14 @@ export const GuardrailPresets = {
     rules: [
       shield({
         mode: "LIVE",
-        categories: [
-          "sql-injection", 
-          "xss", 
-          "command-injection", 
-          "path-traversal", 
-          "xxe"
-        ],
+        categories: ["sql-injection", "xss", "command-injection", "path-traversal", "xxe"],
       }),
-      detectBot({ 
-        allow: [], 
+      bot({
+        allow: [],
         analyzeHeaders: true,
-        confidenceThreshold: 80 
+        confidenceThreshold: 80,
       }),
-      slidingWindow({ interval: "1m", max: 10 }),
+      window({ interval: "1m", max: 10 }),
     ],
     errorHandling: "FAIL_CLOSED",
     evaluationStrategy: "SHORT_CIRCUIT",
@@ -92,14 +80,14 @@ export const GuardrailPresets = {
   ai: (): GuardrailConfig => ({
     rules: [
       shield(),
-      detectBot({ allow: [] }),
+      bot({ allow: [] }),
       // Default: 1000 tokens/min capacity, refilling 10 per second approx.
       // Users should override this with their specific token logic
-      tokenBucket({ 
-        refillRate: 10, 
-        interval: "1s", 
+      bucket({
+        refillRate: 10,
+        interval: "1s",
         capacity: 1000,
-        characteristics: ["ip.src"]
+        by: ["ip.src"],
       }),
     ],
     errorHandling: "FAIL_OPEN",
@@ -119,11 +107,11 @@ export const GuardrailPresets = {
         scanBody: true,
         scanHeaders: true,
       }),
-      detectBot({ allow: [] }),
-      validateEmail({
+      bot({ allow: [] }),
+      email({
         block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
       }),
-      slidingWindow({ interval: "1m", max: 20 }), // Strict limit for payments
+      window({ interval: "1m", max: 20 }), // Strict limit for payments
     ],
     errorHandling: "FAIL_OPEN", // balanced security and availability
     evaluationStrategy: "SEQUENTIAL",
@@ -138,11 +126,11 @@ export const GuardrailPresets = {
   auth: (): GuardrailConfig => ({
     rules: [
       shield(),
-      detectBot({ allow: [] }),
-      validateEmail({
+      bot({ allow: [] }),
+      email({
         block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
       }),
-      slidingWindow({ interval: "1m", max: 10 }), // Prevent brute force
+      window({ interval: "1m", max: 10 }), // Prevent brute force
     ],
     errorHandling: "FAIL_OPEN",
     evaluationStrategy: "SEQUENTIAL",
@@ -156,8 +144,8 @@ export const GuardrailPresets = {
   development: (): GuardrailConfig => ({
     rules: [
       shield({ mode: "DRY_RUN" }),
-      detectBot({ mode: "DRY_RUN", allow: [] }),
-      slidingWindow({ mode: "DRY_RUN", interval: "1m", max: 100 }),
+      bot({ mode: "DRY_RUN", allow: [] }),
+      window({ mode: "DRY_RUN", interval: "1m", max: 100 }),
     ],
     debug: true,
     errorHandling: "FAIL_OPEN",

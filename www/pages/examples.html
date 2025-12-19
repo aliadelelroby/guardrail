@@ -1,0 +1,164 @@
+<header class="docs-header">
+  <h1 class="docs-title">Examples</h1>
+  <p class="docs-description">Real-world examples and use cases for Guardrail.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Payment Form Protection</h2>
+  <p>Protect payment endpoints with comprehensive security:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, shield, bot, email, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(), <span class="cmt">// Attack protection</span>
+    <span class="fn">bot</span>({ <span class="prop">allow</span>: [] }), <span class="cmt">// Block all bots</span>
+    <span class="fn">email</span>({
+      <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>, <span class="str">"INVALID"</span>, <span class="str">"NO_MX_RECORDS"</span>],
+    }),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">5</span> }), <span class="cmt">// 5 attempts per 10 minutes</span>
+  ],
+  <span class="prop">whitelist</span>: {
+    <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>], <span class="cmt">// Admin IP</span>
+  },
+  <span class="prop">errorHandling</span>: <span class="str">"FAIL_CLOSED"</span>, <span class="cmt">// Strict security</span>
+});
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> { email } = <span class="kw">await</span> req.<span class="fn">json</span>();
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, { <span class="prop">email</span> });
+
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+    <span class="kw">if</span> (decision.reason.<span class="fn">isBot</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Bot detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+    }
+    <span class="kw">if</span> (decision.reason.<span class="fn">isEmail</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Invalid email"</span>, { <span class="prop">status</span>: <span class="num">400</span> });
+    }
+    <span class="kw">if</span> (decision.reason.<span class="fn">isRateLimit</span>()) {
+      <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Rate limit exceeded"</span>, { <span class="prop">status</span>: <span class="num">429</span> });
+    }
+  }
+
+  <span class="cmt">// Process payment</span>
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Payment processed"</span>);
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>AI Quota Control</h2>
+  <p>Control AI/LLM token usage with token bucket rate limiting:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, bucket } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">bucket</span>({
+      <span class="prop">by</span>: [<span class="str">"userId"</span>],
+      <span class="prop">refillRate</span>: <span class="num">2000</span>, <span class="cmt">// 2000 tokens per hour</span>
+      <span class="prop">interval</span>: <span class="str">"1h"</span>,
+      <span class="prop">capacity</span>: <span class="num">5000</span>, <span class="cmt">// Max 5000 tokens</span>
+    }),
+  ],
+  <span class="prop">evaluationStrategy</span>: <span class="str">"SHORT_CIRCUIT"</span>,
+});
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> { userId, prompt } = <span class="kw">await</span> req.<span class="fn">json</span>();
+  <span class="kw">const</span> estimatedTokens = <span class="fn">estimateTokens</span>(prompt);
+
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+    <span class="prop">userId</span>,
+    <span class="prop">requested</span>: estimatedTokens,
+  });
+
+  <span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+    <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+    <span class="kw">return</span> Response.<span class="fn">json</span>(
+      { <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>, remaining },
+      { <span class="prop">status</span>: <span class="num">429</span> }
+    );
+  }
+
+  <span class="cmt">// Process AI request</span>
+  <span class="kw">return</span> Response.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>API Endpoint Protection</h2>
+  <p>Protect API endpoints with rate limiting and attack protection:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, GuardrailPresets } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="cmt">// Use API preset</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>(GuardrailPresets.<span class="fn">api</span>());
+
+<span class="kw">export async function</span> <span class="fn">GET</span>(req: Request) {
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+    <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Forbidden"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  }
+
+  <span class="cmt">// Return API response</span>
+  <span class="kw">return</span> Response.<span class="fn">json</span>({ <span class="prop">data</span>: <span class="str">"..."</span> });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Geographic Filtering</h2>
+  <p>Block or allow requests based on geographic location:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, filter } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">deny</span>: [
+        <span class="str">'ip.src.country ne "US"'</span>, <span class="cmt">// Block non-US traffic</span>
+        <span class="str">"ip.src.vpn == true"</span>, <span class="cmt">// Block VPNs</span>
+      ],
+    }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#getting-started" data-route="getting-started">Getting Started</a> — Quick
+      start guide
+    </li>
+    <li><a href="docs.html#presets" data-route="presets">Presets</a> — Pre-configured settings</li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

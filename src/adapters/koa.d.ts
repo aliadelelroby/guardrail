@@ -1,4 +1,4 @@
-import { Decision } from "../types/index";
+import type { Decision } from "../types/index";
 
 declare module "koa" {
   interface BaseContext {

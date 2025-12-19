@@ -14,7 +14,14 @@ export class FilterRule {
     ipInfo: IPInfo,
     characteristics: Record<string, string | number | undefined>
   ): Promise<RuleResult> {
-    const context = this.buildContext(request, ipInfo, characteristics);
+    // Filter characteristics based on 'by' if provided
+    const relevantCharacteristics = this.config.by
+      ? Object.fromEntries(
+          Object.entries(characteristics).filter(([key]) => this.config.by!.includes(key))
+        )
+      : characteristics;
+
+    const context = this.buildContext(request, ipInfo, relevantCharacteristics);
 
     let conclusion: DecisionConclusion = "ALLOW";
 

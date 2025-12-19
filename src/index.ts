@@ -8,6 +8,15 @@ import { Guardrail } from "./core/guardrail";
 import type { GuardrailConfig } from "./types/index";
 
 export { Guardrail } from "./core/guardrail";
+export { loadConfigFile, createGuardrailFromConfig } from "./utils/config-loader";
+export {
+  validateConfig,
+  formatValidationErrors,
+  ConfigValidationError,
+} from "./utils/config-validator";
+export { explainDecision } from "./utils/decision-explainer";
+export { visualizeDecision, logDecision, visualizeTimeline } from "./utils/debug-visualizer";
+export { replayRequests, formatReplayResults } from "./cli/replay";
 export { GuardrailBuilder, createGuardrailBuilder } from "./core/guardrail-builder";
 export { GuardrailPresets } from "./core/presets";
 
@@ -15,10 +24,10 @@ export { GuardrailPresets } from "./core/presets";
 export { MemoryStorage } from "./storage/memory";
 export { RedisStorage } from "./storage/redis";
 export { AtomicRedisStorage } from "./storage/redis-atomic";
-export type { 
-  AtomicRedisStorageOptions, 
-  TokenBucketResult, 
-  SlidingWindowResult 
+export type {
+  AtomicRedisStorageOptions,
+  TokenBucketResult,
+  SlidingWindowResult,
 } from "./storage/redis-atomic";
 
 // IP Services
@@ -38,14 +47,15 @@ export type {
 
 // VPN Detection
 export { VPNProxyDetection } from "./services/vpn-detection";
-export type { 
-  VPNDetectionConfig, 
-  VPNDetectionResult 
-} from "./services/vpn-detection";
+export type { VPNDetectionConfig, VPNDetectionResult } from "./services/vpn-detection";
 
 // Utilities
 export { CircuitBreaker } from "./utils/circuit-breaker";
-export { InMemoryMetricsCollector, NoOpMetricsCollector, type MetricsCollector } from "./utils/metrics";
+export {
+  InMemoryMetricsCollector,
+  NoOpMetricsCollector,
+  type MetricsCollector,
+} from "./utils/metrics";
 export { ConsoleLogger, type Logger } from "./utils/logger";
 export { GuardrailEventEmitter, type GuardrailEventUnion } from "./utils/events";
 export { MiddlewareChain, type Middleware } from "./utils/middleware";
@@ -62,10 +72,10 @@ export type { PrometheusMetricConfig, PrometheusMetricType } from "./utils/prome
 // Rules - factory functions and classes
 export {
   shield,
-  detectBot,
-  slidingWindow,
-  tokenBucket,
-  validateEmail,
+  bot,
+  window,
+  bucket,
+  email,
   filter,
   BotDetectionRule,
   ShieldRule,
@@ -76,21 +86,11 @@ export {
 } from "./rules/index";
 
 // Rule types
-export type { 
-  BotDetectionResult, 
-  BotDetectionRuleConfig 
-} from "./rules/bot-detection";
+export type { BotDetectionResult, BotDetectionRuleConfig } from "./rules/bot-detection";
 
-export type { 
-  ShieldRuleConfig, 
-  ShieldCategory, 
-  ShieldDetectionResult 
-} from "./rules/shield";
+export type { ShieldRuleConfig, ShieldCategory, ShieldDetectionResult } from "./rules/shield";
 
-export type { 
-  EmailValidationRuleConfig, 
-  EmailValidationResult,
-} from "./rules/email-validation";
+export type { EmailValidationRuleConfig, EmailValidationResult } from "./rules/email-validation";
 
 // Core types
 export type {
@@ -123,11 +123,7 @@ export type {
   CustomRuleConfig,
 } from "./types/index";
 
-export type {
-  CustomRule,
-  CustomRuleFactory,
-  CustomRuleContext,
-} from "./types/custom-rules";
+export type { CustomRule, CustomRuleFactory, CustomRuleContext } from "./types/custom-rules";
 
 export {
   GuardrailError,
@@ -157,11 +153,11 @@ export {
  * ```typescript
  * const rail = guardrail({
  *   rules: [
- *     tokenBucket({
+ *     bucket({
  *       interval: "1h",
  *       refillRate: 100,
  *       capacity: 1000,
- *       characteristics: ["ip.src"]
+ *       by: ["ip.src"]
  *     })
  *   ]
  * });

@@ -6,6 +6,7 @@
 
 import type { StorageAdapter } from "../types/index";
 import Redis from "ioredis";
+import { validateKeyPrefix, sanitizeKeyComponent } from "../utils/key-sanitizer";
 
 /**
  * Lua scripts for atomic rate limiting operations
@@ -244,17 +245,19 @@ export class AtomicRedisStorage implements StorageAdapter {
     } else {
       this.client = options.redis ? new Redis(options.redis) : new Redis();
     }
-    this.keyPrefix = options.keyPrefix || "guardrail:";
+    // Validate and sanitize key prefix
+    const prefix = options.keyPrefix || "guardrail:";
+    this.keyPrefix = validateKeyPrefix(prefix);
   }
 
   /**
    * Loads Lua scripts into Redis
    */
   private async ensureScriptsLoaded(): Promise<void> {
-    if (this.scriptsLoaded) return;
+    if (this.scriptsLoaded) {return;}
 
     for (const [name, script] of Object.entries(LUA_SCRIPTS)) {
-      const sha = await this.client.script("LOAD", script) as string;
+      const sha = (await this.client.script("LOAD", script)) as string;
       this.scriptShas[name] = sha;
     }
     this.scriptsLoaded = true;
@@ -271,12 +274,7 @@ export class AtomicRedisStorage implements StorageAdapter {
     await this.ensureScriptsLoaded();
 
     try {
-      return await this.client.evalsha(
-        this.scriptShas[scriptName],
-        keys.length,
-        ...keys,
-        ...args
-      );
+      return await this.client.evalsha(this.scriptShas[scriptName], keys.length, ...keys, ...args);
     } catch (error: any) {
       if (error?.message?.includes("NOSCRIPT")) {
         this.scriptsLoaded = false;
@@ -303,16 +301,16 @@ export class AtomicRedisStorage implements StorageAdapter {
     intervalMs: number,
     requested: number = 1
   ): Promise<TokenBucketResult> {
-    const fullKey = this.keyPrefix + key;
+    // Sanitize key component to prevent injection
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    const fullKey = this.keyPrefix + sanitizedKey;
     const now = Date.now();
 
-    const result = (await this.executeScript("tokenBucket", [fullKey], [
-      capacity,
-      refillRate,
-      intervalMs,
-      requested,
-      now,
-    ])) as [number, number, number];
+    const result = (await this.executeScript(
+      "tokenBucket",
+      [fullKey],
+      [capacity, refillRate, intervalMs, requested, now]
+    )) as [number, number, number];
 
     return {
       allowed: result[0] === 1,
@@ -324,19 +322,17 @@ export class AtomicRedisStorage implements StorageAdapter {
   /**
    * Executes sliding window rate limiting atomically
    */
-  async slidingWindow(
-    key: string,
-    max: number,
-    windowMs: number
-  ): Promise<SlidingWindowResult> {
-    const fullKey = this.keyPrefix + key;
+  async slidingWindow(key: string, max: number, windowMs: number): Promise<SlidingWindowResult> {
+    // Sanitize key component to prevent injection
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    const fullKey = this.keyPrefix + sanitizedKey;
     const now = Date.now();
 
-    const result = (await this.executeScript("slidingWindow", [fullKey], [
-      max,
-      windowMs,
-      now,
-    ])) as [number, number, number];
+    const result = (await this.executeScript("slidingWindow", [fullKey], [max, windowMs, now])) as [
+      number,
+      number,
+      number,
+    ];
 
     return {
       allowed: result[0] === 1,
@@ -348,19 +344,17 @@ export class AtomicRedisStorage implements StorageAdapter {
   /**
    * Executes fixed window rate limiting atomically
    */
-  async fixedWindow(
-    key: string,
-    max: number,
-    windowMs: number
-  ): Promise<SlidingWindowResult> {
-    const fullKey = this.keyPrefix + key;
+  async fixedWindow(key: string, max: number, windowMs: number): Promise<SlidingWindowResult> {
+    // Sanitize key component to prevent injection
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    const fullKey = this.keyPrefix + sanitizedKey;
     const now = Date.now();
 
-    const result = (await this.executeScript("fixedWindow", [fullKey], [
-      max,
-      windowMs,
-      now,
-    ])) as [number, number, number];
+    const result = (await this.executeScript("fixedWindow", [fullKey], [max, windowMs, now])) as [
+      number,
+      number,
+      number,
+    ];
 
     return {
       allowed: result[0] === 1,
@@ -378,15 +372,26 @@ export class AtomicRedisStorage implements StorageAdapter {
     requestId: string,
     timeoutMs: number = 30000
   ): Promise<{ allowed: boolean; current: number }> {
-    const fullKey = this.keyPrefix + "concurrent:" + key;
+    // Validate requestId format (should be UUID or similar)
+    if (!requestId || typeof requestId !== "string") {
+      throw new Error("requestId must be a non-empty string");
+    }
+    if (requestId.length > 128) {
+      throw new Error("requestId exceeds maximum length of 128 characters");
+    }
+    // Sanitize requestId to prevent injection
+    const sanitizedRequestId = sanitizeKeyComponent(requestId, 128);
+
+    // Sanitize key component
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    const fullKey = this.keyPrefix + "concurrent:" + sanitizedKey;
     const now = Date.now();
 
-    const result = (await this.executeScript("acquireConcurrency", [fullKey], [
-      maxConcurrent,
-      requestId,
-      timeoutMs,
-      now,
-    ])) as [number, number];
+    const result = (await this.executeScript(
+      "acquireConcurrency",
+      [fullKey],
+      [maxConcurrent, sanitizedRequestId, timeoutMs, now]
+    )) as [number, number];
 
     return {
       allowed: result[0] === 1,
@@ -398,35 +403,51 @@ export class AtomicRedisStorage implements StorageAdapter {
    * Releases a concurrent request slot
    */
   async releaseConcurrency(key: string, requestId: string): Promise<void> {
-    const fullKey = this.keyPrefix + "concurrent:" + key;
+    // Validate requestId
+    if (!requestId || typeof requestId !== "string") {
+      throw new Error("requestId must be a non-empty string");
+    }
+    if (requestId.length > 128) {
+      throw new Error("requestId exceeds maximum length of 128 characters");
+    }
+    const sanitizedRequestId = sanitizeKeyComponent(requestId, 128);
 
-    await this.executeScript("releaseConcurrency", [fullKey], [requestId]);
+    // Sanitize key
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    const fullKey = this.keyPrefix + "concurrent:" + sanitizedKey;
+
+    await this.executeScript("releaseConcurrency", [fullKey], [sanitizedRequestId]);
   }
 
   // Standard StorageAdapter methods for backwards compatibility
 
   async get(key: string): Promise<string | null> {
-    return this.client.get(this.keyPrefix + key);
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    return this.client.get(this.keyPrefix + sanitizedKey);
   }
 
   async set(key: string, value: string, ttl?: number): Promise<void> {
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
     if (ttl) {
-      await this.client.setex(this.keyPrefix + key, Math.ceil(ttl / 1000), value);
+      await this.client.setex(this.keyPrefix + sanitizedKey, Math.ceil(ttl / 1000), value);
     } else {
-      await this.client.set(this.keyPrefix + key, value);
+      await this.client.set(this.keyPrefix + sanitizedKey, value);
     }
   }
 
   async increment(key: string, amount: number = 1): Promise<number> {
-    return this.client.incrby(this.keyPrefix + key, amount);
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    return this.client.incrby(this.keyPrefix + sanitizedKey, amount);
   }
 
   async decrement(key: string, amount: number = 1): Promise<number> {
-    return this.client.decrby(this.keyPrefix + key, amount);
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    return this.client.decrby(this.keyPrefix + sanitizedKey, amount);
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.del(this.keyPrefix + key);
+    const sanitizedKey = sanitizeKeyComponent(key, 200);
+    await this.client.del(this.keyPrefix + sanitizedKey);
   }
 
   /**

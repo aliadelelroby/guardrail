@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GuardrailGuard } from "./guardrail.guard";
 import { Reflector } from "@nestjs/core";
 import { Guardrail } from "../../core/guardrail";
-import { ExecutionContext } from "@nestjs/common";
-import { GUARDRAIL_RULES, SKIP_GUARDRAIL, RateLimit } from "./decorators";
+import type { ExecutionContext } from "@nestjs/common";
+import { GUARDRAIL_RULES, SKIP_GUARDRAIL } from "./decorators";
 
 describe("GuardrailGuard", () => {
   let guard: GuardrailGuard;
@@ -47,7 +47,9 @@ describe("GuardrailGuard", () => {
 
   it("should skip evaluation if @SkipGuardrail is present", async () => {
     vi.spyOn(reflector, "get").mockImplementation((key) => {
-      if (key === SKIP_GUARDRAIL) return true;
+      if (key === SKIP_GUARDRAIL) {
+        return true;
+      }
       return undefined;
     });
 
@@ -70,7 +72,7 @@ describe("GuardrailGuard", () => {
   });
 
   it("should merge route-specific rules from decorators", async () => {
-    const protectSpy = vi.spyOn(guardrail, "protect");
+    const _protectSpy = vi.spyOn(guardrail, "protect");
 
     vi.spyOn(reflector, "get").mockImplementation((key) => {
       if (key === GUARDRAIL_RULES) {

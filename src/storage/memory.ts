@@ -5,13 +5,13 @@
 
 import type { StorageAdapter } from "../types/index";
 import { LRUCache } from "lru-cache";
+import { safeJsonParse } from "../utils/safe-json";
 
 /**
  * Cache entry with expiration timestamp
  */
 interface CacheEntry {
   value: string;
-  expiresAt?: number;
 }
 
 /**
@@ -28,7 +28,8 @@ export class MemoryStorage implements StorageAdapter {
   constructor(maxSize: number = 10000) {
     this.cache = new LRUCache<string, CacheEntry>({
       max: maxSize,
-      ttl: 0,
+      ttl: 24 * 60 * 60 * 1000, // Default 24h TTL for memory safety
+      ttlAutopurge: true,
       updateAgeOnGet: false,
     });
   }
@@ -44,11 +45,6 @@ export class MemoryStorage implements StorageAdapter {
       return null;
     }
 
-    if (entry.expiresAt && entry.expiresAt < Date.now()) {
-      this.cache.delete(key);
-      return null;
-    }
-
     return entry.value;
   }
 
@@ -61,9 +57,12 @@ export class MemoryStorage implements StorageAdapter {
   async set(key: string, value: string, ttl?: number): Promise<void> {
     const entry: CacheEntry = {
       value,
-      expiresAt: ttl ? Date.now() + ttl : undefined,
     };
-    this.cache.set(key, entry);
+
+    // Node.js setTimeout limit is 2^31-1 ms. Cap TTL to avoid overflow warnings.
+    const cappedTtl = ttl !== undefined ? Math.min(ttl, 2147483647) : undefined;
+
+    this.cache.set(key, entry, { ttl: cappedTtl });
   }
 
   /**
@@ -96,5 +95,51 @@ export class MemoryStorage implements StorageAdapter {
    */
   async delete(key: string): Promise<void> {
     this.cache.delete(key);
+  }
+
+  /**
+   * Pushes a value to a list stored at key
+   */
+  async push(key: string, value: string, ttl?: number): Promise<void> {
+    const current = await this.get(key);
+    let list: string[] = [];
+    if (current) {
+      try {
+        list = safeJsonParse<string[]>(current);
+      } catch {
+        list = [];
+      }
+    }
+    list.push(value);
+    await this.set(key, JSON.stringify(list), ttl);
+  }
+
+  /**
+   * Gets a range of values from a list stored at key
+   */
+  async range(key: string, start: number, end: number): Promise<string[]> {
+    const current = await this.get(key);
+    if (!current) {return [];}
+    try {
+      const list = safeJsonParse<string[]>(current);
+      return list.slice(start, end < 0 ? undefined : end + 1);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Trims a list stored at key to specified range
+   */
+  async trim(key: string, start: number, end: number): Promise<void> {
+    const current = await this.get(key);
+    if (!current) {return;}
+    try {
+      const list = safeJsonParse<string[]>(current);
+      const trimmed = list.slice(start, end < 0 ? undefined : end + 1);
+      await this.set(key, JSON.stringify(trimmed));
+    } catch {
+      // Ignore parse errors
+    }
   }
 }

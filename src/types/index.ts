@@ -5,10 +5,38 @@
 
 /**
  * Operation mode for rules
- * - LIVE: Rules are enforced and can deny requests
- * - DRY_RUN: Rules are evaluated but always allow requests
  */
 export type Mode = "LIVE" | "DRY_RUN";
+
+/**
+ * Options for extracting information from requests across different frameworks
+ */
+export interface AdapterOptions<TRequest = unknown> {
+  /** Extracts user ID from request */
+  userExtractor?: (req: TRequest) => string | undefined;
+  /** Extracts email from request */
+  emailExtractor?: (req: TRequest) => string | undefined;
+  /** Extracts requested tokens from request */
+  tokensExtractor?: (req: TRequest) => number | undefined;
+  /** Extracts metadata from request */
+  metadataExtractor?: (req: TRequest) => GuardrailMetadata | undefined;
+}
+
+/**
+ * Configuration for the Quota utility
+ */
+export interface QuotaConfig {
+  /** Short-term burst limit (e.g., 5 requests per minute) */
+  burst?: DynamicValue<number>;
+  /** Burst interval (default: "1m") */
+  burstInterval?: string;
+  /** Daily quota (e.g., 100 requests per day) */
+  daily?: DynamicValue<number>;
+  /** Monthly quota (e.g., 1000 requests per month) */
+  monthly?: DynamicValue<number>;
+  /** Custom tracking characteristics (default: ["userId"]) */
+  by?: string[];
+}
 
 /**
  * Final decision conclusion for a request
@@ -189,12 +217,16 @@ export interface Decision {
   results: RuleResult[];
   /** Enhanced IP information */
   ip: EnhancedIPInfo;
+  /** Request metadata */
+  metadata: GuardrailMetadata;
   /** Request characteristics used for evaluation */
   characteristics: Record<string, string | number | undefined>;
   /** Checks if request is allowed */
   isAllowed(): boolean;
   /** Checks if request is denied */
   isDenied(): boolean;
+  /** Returns a human-readable explanation of the decision */
+  explain(): string;
 }
 
 /**
@@ -214,6 +246,11 @@ export interface RuleResult {
 }
 
 /**
+ * Metadata provided for dynamic limit resolution (e.g., subscription info)
+ */
+export type GuardrailMetadata = Record<string, unknown>
+
+/**
  * Options for protect method evaluation
  */
 export interface ProtectOptions {
@@ -223,8 +260,10 @@ export interface ProtectOptions {
   email?: string;
   /** User identifier */
   userId?: string;
+  /** Custom metadata for dynamic limit resolution */
+  metadata?: GuardrailMetadata;
   /** Additional custom characteristics */
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | boolean | undefined | GuardrailMetadata;
 }
 
 /**
@@ -238,6 +277,26 @@ export type ErrorHandlingMode = "FAIL_OPEN" | "FAIL_CLOSED";
 export type EvaluationStrategy = "SEQUENTIAL" | "PARALLEL" | "SHORT_CIRCUIT";
 
 /**
+ * Resilience configuration for circuit breakers
+ */
+export interface ResilienceConfig {
+  /** Circuit breaker for storage operations */
+  storage?: {
+    /** Number of failures before opening the circuit */
+    threshold?: number;
+    /** Time in milliseconds before attempting to reset the circuit */
+    timeout?: number;
+  };
+  /** Circuit breaker for IP geolocation operations */
+  ip?: {
+    /** Number of failures before opening the circuit */
+    threshold?: number;
+    /** Time in milliseconds before attempting to reset the circuit */
+    timeout?: number;
+  };
+}
+
+/**
  * Configuration for Guardrail instance
  */
 export interface GuardrailConfig {
@@ -245,16 +304,18 @@ export interface GuardrailConfig {
   key?: string;
   /** Default mode for rules (can be overridden per rule) */
   mode?: Mode;
-  /** Array of rules to evaluate */
-  rules: GuardrailRule[];
+  /** Array of rules to evaluate (optional, defaults to API preset if omitted) */
+  rules?: GuardrailRule[];
   /** Default characteristics to use for rate limiting */
-  characteristics?: string[];
+  by?: string[];
   /** Storage adapter for rate limiting (defaults to MemoryStorage) */
   storage?: StorageAdapter;
   /** IP geolocation service (defaults to IPGeolocation) */
   ipService?: IPGeolocationService;
   /** Error handling mode (default: FAIL_OPEN) */
   errorHandling?: ErrorHandlingMode;
+  /** Resilience configuration for tuning circuit breakers */
+  resilience?: ResilienceConfig;
   /** Evaluation strategy (default: SEQUENTIAL) */
   evaluationStrategy?: EvaluationStrategy;
   /** Enable debug mode */
@@ -301,6 +362,8 @@ export interface Rule {
   mode: Mode;
   /** Rule type identifier */
   type: GuardrailRuleType;
+  /** Error handling strategy for this specific rule */
+  errorStrategy?: ErrorHandlingMode;
 }
 
 /**
@@ -329,6 +392,12 @@ export interface StorageAdapter {
   decrement(key: string, amount?: number): Promise<number>;
   /** Deletes a key */
   delete(key: string): Promise<void>;
+  /** Pushes a value to a list stored at key */
+  push?(key: string, value: string, ttl?: number): Promise<void>;
+  /** Gets a range of values from a list stored at key */
+  range?(key: string, start: number, end: number): Promise<string[]>;
+  /** Trims a list stored at key to specified range */
+  trim?(key: string, start: number, end: number): Promise<void>;
 }
 
 /**
@@ -340,18 +409,40 @@ export interface IPGeolocationService {
 }
 
 /**
+ * Context provided to dynamic value resolvers
+ */
+export interface DecisionContext {
+  /** Request characteristics */
+  characteristics: Record<string, string | number | undefined>;
+  /** Protection options */
+  options: ProtectOptions;
+  /** Resolved metadata for limit resolution */
+  metadata: GuardrailMetadata;
+  /** IP information */
+  ip: EnhancedIPInfo;
+  /** The current rule being evaluated */
+  rule?: GuardrailRule;
+}
+
+/**
+ * A value that can be static, a resolver function, or a metadata path.
+ * Supports asynchronous resolution for database-backed limits.
+ */
+export type DynamicValue<T> = T | ((context: DecisionContext) => T | Promise<T>) | string;
+
+/**
  * Token bucket rate limiting configuration
  */
 export interface TokenBucketConfig extends Rule {
   type: "tokenBucket";
   /** Characteristics to use for rate limiting key generation */
-  characteristics: string[];
+  by: string[];
   /** Number of tokens to refill per interval */
-  refillRate: number;
+  refillRate: DynamicValue<number>;
   /** Refill interval (e.g., "1h", "30m", "5s") */
   interval: string;
   /** Maximum bucket capacity */
-  capacity: number;
+  capacity: DynamicValue<number>;
 }
 
 /**
@@ -360,11 +451,11 @@ export interface TokenBucketConfig extends Rule {
 export interface SlidingWindowConfig extends Rule {
   type: "slidingWindow";
   /** Characteristics to use for rate limiting key generation */
-  characteristics?: string[];
+  by?: string[];
   /** Time window interval (e.g., "1h", "30m", "5s") */
   interval: string;
   /** Maximum requests allowed in the window */
-  max: number;
+  max: DynamicValue<number>;
 }
 
 /**
@@ -390,10 +481,10 @@ export interface EmailValidationConfig extends Rule {
 /**
  * Reasons for blocking an email address
  */
-export type EmailBlockReason = 
-  | "DISPOSABLE" 
-  | "INVALID" 
-  | "NO_MX_RECORDS" 
+export type EmailBlockReason =
+  | "DISPOSABLE"
+  | "INVALID"
+  | "NO_MX_RECORDS"
   | "FREE"
   | "ROLE_BASED"
   | "CATCH_ALL"
@@ -417,7 +508,7 @@ export interface FilterConfig extends Rule {
   /** Deny list criteria */
   deny?: string[];
   /** Characteristics to use for filtering */
-  characteristics?: string[];
+  by?: string[];
 }
 
 /**

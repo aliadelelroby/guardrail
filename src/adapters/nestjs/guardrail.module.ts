@@ -3,8 +3,13 @@
  * @module adapters/nestjs
  */
 
-import type { DynamicModule, FactoryProvider } from "@nestjs/common";
-import { Global, Module } from "@nestjs/common";
+import {
+  Global,
+  Module,
+  type DynamicModule,
+  type Provider,
+  type FactoryProvider,
+} from "@nestjs/common";
 import { APP_GUARD, APP_INTERCEPTOR, Reflector } from "@nestjs/core";
 import { Guardrail } from "../../core/guardrail";
 import type { GuardrailConfig } from "../../types/index";
@@ -36,6 +41,16 @@ export interface GuardrailModuleOptions extends GuardrailConfig {
   emailExtractor?: (request: any) => string | undefined;
 
   /**
+   * Global tokens/units extractor for NestJS requests (for token bucket)
+   */
+  tokensExtractor?: (request: any) => number | undefined;
+
+  /**
+   * Global metadata extractor for NestJS requests
+   */
+  metadataExtractor?: (request: any) => Record<string, any> | undefined;
+
+  /**
    * Automatically protect all routes with the 'api' preset if no decorators are present.
    * Default: false
    */
@@ -56,12 +71,12 @@ export class GuardrailModule {
     const {
       useGuard = false,
       useInterceptor = false,
-      userExtractor,
-      emailExtractor,
+      userExtractor: _userExtractor,
+      emailExtractor: _emailExtractor,
       ...guardrailConfig
     } = options;
 
-    const providers: Array<FactoryProvider<unknown>> = [
+    const providers: Provider[] = [
       {
         provide: Guardrail,
         useFactory: (): Guardrail => new Guardrail(guardrailConfig),

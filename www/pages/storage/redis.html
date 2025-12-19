@@ -1,0 +1,82 @@
+<header class="docs-header">
+  <h1 class="docs-title">RedisStorage</h1>
+  <p class="docs-description">Redis-based storage adapter for distributed deployments.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    <code>RedisStorage</code> provides distributed storage using Redis. It's ideal for
+    multi-instance deployments where rate limiting data needs to be shared across instances.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, RedisStorage } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">storage</span>: <span class="kw">new</span> <span class="fn">RedisStorage</span>(process.env.REDIS_URL),
+  <span class="prop">rules</span>: [<span class="cmt">/* ... */</span>],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>When to Use</h2>
+  <ul>
+    <li>Multi-instance deployments</li>
+    <li>Distributed rate limiting</li>
+    <li>Production environments</li>
+    <li>When you need persistent rate limiting data</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Installation</h2>
+  <p>Install the required dependency:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">bash</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code>npm install ioredis</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Configuration</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Using connection string</span>
+<span class="kw">const</span> storage = <span class="kw">new</span> <span class="fn">RedisStorage</span>(<span class="str">"redis://localhost:6379"</span>);
+
+<span class="cmt">// Using environment variable</span>
+<span class="kw">const</span> storage = <span class="kw">new</span> <span class="fn">RedisStorage</span>(process.env.REDIS_URL);
+
+<span class="cmt">// Defaults to localhost:6379 if no URL provided</span>
+<span class="kw">const</span> storage = <span class="kw">new</span> <span class="fn">RedisStorage</span>();</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#storage-memory" data-route="storage-memory">MemoryStorage</a> — In-memory
+      storage
+    </li>
+    <li>
+      <a href="docs.html#storage-atomic-redis" data-route="storage-atomic-redis"
+        >AtomicRedisStorage</a
+      >
+      — Atomic Redis operations
+    </li>
+  </ul>
+</section>

@@ -11,14 +11,7 @@ import type {
   WhitelistConfig,
   BlacklistConfig,
 } from "../types/index";
-import {
-  shield,
-  detectBot,
-  slidingWindow,
-  tokenBucket,
-  validateEmail,
-  filter,
-} from "../rules/index";
+import { shield, bot, window, bucket, email, filter } from "../rules/index";
 
 /**
  * Fluent builder for Guardrail configuration
@@ -46,32 +39,32 @@ export class GuardrailBuilder {
   /**
    * Adds a bot detection rule
    */
-  detectBot(config?: Parameters<typeof detectBot>[0]): this {
-    this.rules.push(detectBot(config));
+  bot(config?: Parameters<typeof bot>[0]): this {
+    this.rules.push(bot(config));
     return this;
   }
 
   /**
    * Adds a sliding window rate limit rule
    */
-  slidingWindow(config: Parameters<typeof slidingWindow>[0]): this {
-    this.rules.push(slidingWindow(config));
+  window(config: Parameters<typeof window>[0]): this {
+    this.rules.push(window(config));
     return this;
   }
 
   /**
    * Adds a token bucket rate limit rule
    */
-  tokenBucket(config: Parameters<typeof tokenBucket>[0]): this {
-    this.rules.push(tokenBucket(config));
+  bucket(config: Parameters<typeof bucket>[0]): this {
+    this.rules.push(bucket(config));
     return this;
   }
 
   /**
    * Adds an email validation rule
    */
-  validateEmail(config: Parameters<typeof validateEmail>[0]): this {
-    this.rules.push(validateEmail(config));
+  email(config: Parameters<typeof email>[0]): this {
+    this.rules.push(email(config));
     return this;
   }
 

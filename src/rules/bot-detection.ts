@@ -4,11 +4,7 @@
  * @module rules/bot-detection
  */
 
-import type {
-  BotDetectionConfig,
-  RuleResult,
-  DecisionConclusion,
-} from "../types/index";
+import type { BotDetectionConfig, RuleResult, DecisionConclusion } from "../types/index";
 import { extractUserAgent } from "../utils/fingerprint";
 
 /**
@@ -16,46 +12,144 @@ import { extractUserAgent } from "../utils/fingerprint";
  */
 const WELL_KNOWN_BOTS = [
   // Search engines
-  "Googlebot", "Bingbot", "Slurp", "DuckDuckBot", "Baiduspider", "YandexBot",
-  "Sogou", "Exabot", "facebot", "ia_archiver",
-  
+  "Googlebot",
+  "Bingbot",
+  "Slurp",
+  "DuckDuckBot",
+  "Baiduspider",
+  "YandexBot",
+  "Sogou",
+  "Exabot",
+  "facebot",
+  "ia_archiver",
+
   // SEO/Marketing bots
-  "AhrefsBot", "SemrushBot", "MJ12bot", "DotBot", "Barkrowler", "BLEXBot",
-  "CCBot", "Omgilibot", "linkdexbot", "spbot", "SeznamBot", "gigabot",
-  "MegaIndex", "BacklinkCrawler", "netEstate", "Screaming Frog",
-  
+  "AhrefsBot",
+  "SemrushBot",
+  "MJ12bot",
+  "DotBot",
+  "Barkrowler",
+  "BLEXBot",
+  "CCBot",
+  "Omgilibot",
+  "linkdexbot",
+  "spbot",
+  "SeznamBot",
+  "gigabot",
+  "MegaIndex",
+  "BacklinkCrawler",
+  "netEstate",
+  "Screaming Frog",
+
   // AI crawlers
-  "ChatGPT-User", "anthropic-ai", "Claude-Web", "GPTBot", "Google-Extended",
-  "PerplexityBot", "Bytespider", "TikTokSpider", "cohere-ai", "Diffbot",
-  
+  "ChatGPT-User",
+  "anthropic-ai",
+  "Claude-Web",
+  "GPTBot",
+  "Google-Extended",
+  "PerplexityBot",
+  "Bytespider",
+  "TikTokSpider",
+  "cohere-ai",
+  "Diffbot",
+
   // Social media bots
-  "FacebookBot", "facebookexternalhit", "Applebot", "Twitterbot", "LinkedInBot",
-  "WhatsApp", "TelegramBot", "DiscordBot", "Slackbot", "PinterestBot",
-  "Snapchat", "Instagram", "reddit bot", "tumblr", "Embedly",
-  
+  "FacebookBot",
+  "facebookexternalhit",
+  "Applebot",
+  "Twitterbot",
+  "LinkedInBot",
+  "WhatsApp",
+  "TelegramBot",
+  "DiscordBot",
+  "Slackbot",
+  "PinterestBot",
+  "Snapchat",
+  "Instagram",
+  "reddit bot",
+  "tumblr",
+  "Embedly",
+
   // Development tools
-  "curl", "Wget", "python-requests", "Go-http-client", "Java", "Apache-HttpClient",
-  "okhttp", "PostmanRuntime", "insomnia", "HTTPie", "rest-client", "axios",
-  "node-fetch", "undici", "got", "request", "superagent", "needle",
-  
+  "curl",
+  "Wget",
+  "python-requests",
+  "Go-http-client",
+  "Java",
+  "Apache-HttpClient",
+  "okhttp",
+  "PostmanRuntime",
+  "insomnia",
+  "HTTPie",
+  "rest-client",
+  "axios",
+  "node-fetch",
+  "undici",
+  "got",
+  "request",
+  "superagent",
+  "needle",
+
   // Scraping frameworks
-  "scrapy", "Puppeteer", "Playwright", "HeadlessChrome", "PhantomJS", "Selenium",
-  "webdriver", "Nightmare", "Splash", "HtmlUnit", "HttpUnit",
-  
+  "scrapy",
+  "Puppeteer",
+  "Playwright",
+  "HeadlessChrome",
+  "PhantomJS",
+  "Selenium",
+  "webdriver",
+  "Nightmare",
+  "Splash",
+  "HtmlUnit",
+  "HttpUnit",
+
   // Monitoring/Uptime bots
-  "UptimeRobot", "Pingdom", "StatusCake", "Site24x7", "Datadog", "NewRelic",
-  "AppDynamics", "Dynatrace", "Prometheus", "Zabbix", "Nagios",
-  
+  "UptimeRobot",
+  "Pingdom",
+  "StatusCake",
+  "Site24x7",
+  "Datadog",
+  "NewRelic",
+  "AppDynamics",
+  "Dynatrace",
+  "Prometheus",
+  "Zabbix",
+  "Nagios",
+
   // Feed readers
-  "Feedly", "NewsBlur", "Feedbin", "Inoreader", "The Old Reader", "FreshRSS",
-  
+  "Feedly",
+  "NewsBlur",
+  "Feedbin",
+  "Inoreader",
+  "The Old Reader",
+  "FreshRSS",
+
   // Security scanners
-  "Nessus", "Nikto", "sqlmap", "WPScan", "Acunetix", "Burp", "ZAP",
-  "Nmap", "Masscan", "Shodan", "Censys",
-  
+  "Nessus",
+  "Nikto",
+  "sqlmap",
+  "WPScan",
+  "Acunetix",
+  "Burp",
+  "ZAP",
+  "Nmap",
+  "Masscan",
+  "Shodan",
+  "Censys",
+
   // Generic bot indicators
-  "bot", "crawler", "spider", "scraper", "fetch", "scan", "check", "monitor",
-  "probe", "search", "index", "archive",
+  "bot",
+  "crawler",
+  "spider",
+  "scraper",
+  "fetch",
+  "scan",
+  "check",
+  "monitor",
+  "probe",
+  "search",
+  "index",
+  "archive",
 ];
 
 // Note: SUSPICIOUS_HEADER_PATTERNS and BrowserSignals are reserved for future
@@ -104,20 +198,22 @@ export class BotDetectionRule {
 
   async evaluate(request: Request): Promise<RuleResult & { detection?: BotDetectionResult }> {
     const detection = this.detectBot(request);
-    
+
     let conclusion: DecisionConclusion = "ALLOW";
-    
+
     if (detection.isBot) {
       // Check if this bot is explicitly allowed
-      const isAllowed = this.config.allow.some((bot) =>
-        detection.botName?.toLowerCase().includes(bot.toLowerCase()) ||
-        detection.signals.some(s => s.toLowerCase().includes(bot.toLowerCase()))
+      const isAllowed = this.config.allow.some(
+        (bot) =>
+          detection.botName?.toLowerCase().includes(bot.toLowerCase()) ||
+          detection.signals.some((s) => s.toLowerCase().includes(bot.toLowerCase()))
       );
-      
+
       // Check if this bot is explicitly blocked
-      const isBlocked = this.config.block?.some((bot) =>
-        detection.botName?.toLowerCase().includes(bot.toLowerCase()) ||
-        detection.signals.some(s => s.toLowerCase().includes(bot.toLowerCase()))
+      const isBlocked = this.config.block?.some(
+        (bot) =>
+          detection.botName?.toLowerCase().includes(bot.toLowerCase()) ||
+          detection.signals.some((s) => s.toLowerCase().includes(bot.toLowerCase()))
       );
 
       if (isBlocked || (!isAllowed && this.config.allow.length === 0)) {
@@ -158,13 +254,13 @@ export class BotDetectionRule {
         signals.push(`User-Agent match: ${bot}`);
         botName = bot;
         confidence = Math.max(confidence, 80);
-        
+
         // Determine bot type
-        if (["Googlebot", "Bingbot", "DuckDuckBot"].some(b => bot.includes(b))) {
+        if (["Googlebot", "Bingbot", "DuckDuckBot"].some((b) => bot.includes(b))) {
           botType = "crawler";
-        } else if (["scrapy", "Puppeteer", "Playwright", "Selenium"].some(b => bot.includes(b))) {
+        } else if (["scrapy", "Puppeteer", "Playwright", "Selenium"].some((b) => bot.includes(b))) {
           botType = "automation";
-        } else if (["curl", "Wget", "python-requests"].some(b => bot.includes(b))) {
+        } else if (["curl", "Wget", "python-requests"].some((b) => bot.includes(b))) {
           botType = "scraper";
         }
         break;
@@ -279,7 +375,11 @@ export class BotDetectionRule {
     }
 
     // Check for impossible combinations
-    if (userAgent.includes("Chrome") && userAgent.includes("Safari") && !userAgent.includes("Edg")) {
+    if (
+      userAgent.includes("Chrome") &&
+      userAgent.includes("Safari") &&
+      !userAgent.includes("Edg")
+    ) {
       // This is actually normal for Chrome, but some bots get it wrong
       if (userAgent.includes("MSIE") || userAgent.includes("Trident")) {
         anomalies.push("Impossible browser combination");
@@ -340,11 +440,15 @@ export class BotDetectionRule {
  * Creates a bot detection rule
  */
 export function detectBot(
-  config: Partial<Omit<BotDetectionRuleConfig, "type" | "mode">> & { mode?: "LIVE" | "DRY_RUN" } = {}
+  config: Partial<Omit<BotDetectionRuleConfig, "type" | "mode">> & {
+    mode?: "LIVE" | "DRY_RUN";
+    errorStrategy?: BotDetectionRuleConfig["errorStrategy"];
+  } = {}
 ): BotDetectionRuleConfig {
   return {
     type: "detectBot",
     mode: config.mode ?? "LIVE",
+    errorStrategy: config.errorStrategy,
     allow: config.allow ?? [],
     block: config.block,
     analyzeHeaders: config.analyzeHeaders,

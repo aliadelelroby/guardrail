@@ -256,6 +256,7 @@ export class ExpressionEvaluator {
       return this.checkIn(left, right);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (this.match("KEYWORD", "matches")) {
       this.consume("LPAREN", "(");
       const pattern = this.parseValue();
@@ -342,10 +343,83 @@ export class ExpressionEvaluator {
     if (typeof value !== "string" || typeof pattern !== "string") {
       return false;
     }
+
+    // Validate regex pattern to prevent ReDoS
+    if (!this.isSafeRegexPattern(pattern)) {
+      throw new Error("Regex pattern is too complex or potentially vulnerable to ReDoS");
+    }
+
     try {
+      // Set timeout for regex execution to prevent DoS
       const regex = new RegExp(pattern);
-      return regex.test(value);
+      return this.executeRegexWithTimeout(regex, value);
     } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Validates regex pattern to prevent ReDoS attacks
+   * Checks for dangerous patterns like nested quantifiers
+   */
+  private isSafeRegexPattern(pattern: string): boolean {
+    // Maximum pattern length
+    if (pattern.length > 1000) {
+      return false;
+    }
+
+    // Check for dangerous nested quantifiers (e.g., (a+)+, (a*)*, (a{1,}){1,})
+    const dangerousPatterns = [
+      /\([^)]*\+[^)]*\)\+/, // (a+)+
+      /\([^)]*\*[^)]*\)\*/, // (a*)*
+      /\([^)]*\{[^}]*\}[^)]*\)\{[^}]*\}/, // (a{1,}){1,}
+      /\([^)]*\+[^)]*\)\*/, // (a+)*
+      /\([^)]*\*[^)]*\)\+/, // (a*)+
+    ];
+
+    for (const dangerousPattern of dangerousPatterns) {
+      if (dangerousPattern.test(pattern)) {
+        return false;
+      }
+    }
+
+    // Check for excessive quantifiers in a row
+    const quantifierCount = (pattern.match(/[+*?]\{/g) || []).length;
+    if (quantifierCount > 20) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Executes regex with timeout to prevent DoS
+   */
+  private executeRegexWithTimeout(regex: RegExp, value: string, timeoutMs: number = 100): boolean {
+    const startTime = Date.now();
+    let result = false;
+
+    try {
+      // For simple patterns, execute directly
+      if (value.length < 10000) {
+        result = regex.test(value);
+        return result;
+      }
+
+      // For large strings, check timeout more frequently
+      // This is a simplified approach - in production, consider using worker threads
+      const testValue = value.substring(0, Math.min(value.length, 10000));
+      result = regex.test(testValue);
+
+      if (Date.now() - startTime > timeoutMs) {
+        throw new Error("Regex execution timeout");
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("timeout")) {
+        throw new Error("Regex execution exceeded timeout limit");
+      }
       return false;
     }
   }

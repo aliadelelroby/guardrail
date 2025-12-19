@@ -1,0 +1,280 @@
+<header class="docs-header">
+  <h1 class="docs-title">protect()</h1>
+  <p class="docs-description">
+    Evaluates a request against all configured rules and returns a decision.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>protect()</code> method is the core method of Guardrail. It takes a request and
+    evaluates it against all configured rules, returning a <code>Decision</code> object that
+    indicates whether the request should be allowed or denied.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Forbidden"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+}
+
+<span class="cmt">// Request is allowed, continue processing</span></code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">async</span> <span class="fn">protect</span>(
+  request: Request,
+  options?: ProtectOptions
+): Promise&lt;Decision&gt;</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>request</code></td>
+        <td><code>Request</code></td>
+        <td>Web API Request object or framework request</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>options</code></td>
+        <td><code>ProtectOptions</code></td>
+        <td>Additional options for evaluation</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ProtectOptions Properties</h3>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>userId</code></td>
+        <td><code>string</code></td>
+        <td>User identifier for per-user rate limiting</td>
+      </tr>
+      <tr>
+        <td><code>email</code></td>
+        <td><code>string</code></td>
+        <td>Email address for email validation rules</td>
+      </tr>
+      <tr>
+        <td><code>requested</code></td>
+        <td><code>number</code></td>
+        <td>Number of tokens/requests requested (for token bucket)</td>
+      </tr>
+      <tr>
+        <td><code>characteristics</code></td>
+        <td><code>Record&lt;string, string | number&gt;</code></td>
+        <td>Custom characteristics for rule evaluation</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Returns</h2>
+  <p>
+    Returns a <code>Promise&lt;Decision&gt;</code> that resolves to a <code>Decision</code> object.
+  </p>
+
+  <h3>Decision Object</h3>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>id</code></td>
+        <td><code>string</code></td>
+        <td>Unique decision identifier</td>
+      </tr>
+      <tr>
+        <td><code>conclusion</code></td>
+        <td><code>"ALLOW" | "DENY"</code></td>
+        <td>Final decision conclusion</td>
+      </tr>
+      <tr>
+        <td><code>results</code></td>
+        <td><code>RuleResult[]</code></td>
+        <td>Results from each rule evaluation</td>
+      </tr>
+      <tr>
+        <td><code>reason</code></td>
+        <td><code>DecisionReason</code></td>
+        <td>Reason for denial (if denied)</td>
+      </tr>
+      <tr>
+        <td><code>ip</code></td>
+        <td><code>IPInfo</code></td>
+        <td>IP information for the request</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Decision Methods</h3>
+  <ul>
+    <li><code>isAllowed()</code> — Returns <code>true</code> if the request is allowed</li>
+    <li><code>isDenied()</code> — Returns <code>true</code> if the request is denied</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Basic Usage</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">export async function</span> <span class="fn">POST</span>(req: Request) {
+  <span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+  <span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+    <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Forbidden"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  }
+
+  <span class="cmt">// Process request</span>
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"OK"</span>);
+}</code></pre>
+  </div>
+
+  <h3>With User ID</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> { userId } = <span class="kw">await</span> req.<span class="fn">json</span>();
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, { <span class="prop">userId</span> });
+
+<span class="cmt">// Rate limiting will be per-user</span></code></pre>
+  </div>
+
+  <h3>With Email Validation</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> { email } = <span class="kw">await</span> req.<span class="fn">json</span>();
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, { <span class="prop">email</span> });
+
+<span class="kw">if</span> (decision.reason.<span class="fn">isEmail</span>()) {
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Invalid email"</span>, { <span class="prop">status</span>: <span class="num">400</span> });
+}</code></pre>
+  </div>
+
+  <h3>Token Bucket with Requested Tokens</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> { userId, prompt } = <span class="kw">await</span> req.<span class="fn">json</span>();
+<span class="kw">const</span> estimatedTokens = <span class="fn">estimateTokens</span>(prompt);
+
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+  <span class="prop">userId</span>,
+  <span class="prop">requested</span>: estimatedTokens,
+});
+
+<span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+  <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+  <span class="kw">return</span> Response.<span class="fn">json</span>(
+    { <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>, remaining },
+    { <span class="prop">status</span>: <span class="num">429</span> }
+  );
+}</code></pre>
+  </div>
+
+  <h3>Handling Different Denial Reasons</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">if</span> (decision.<span class="fn">isDenied</span>()) {
+  <span class="kw">if</span> (decision.reason.<span class="fn">isBot</span>()) {
+    <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Bot detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  }
+  <span class="kw">if</span> (decision.reason.<span class="fn">isRateLimit</span>()) {
+    <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Rate limit exceeded"</span>, { <span class="prop">status</span>: <span class="num">429</span> });
+  }
+  <span class="kw">if</span> (decision.reason.<span class="fn">isShield</span>()) {
+    <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Attack detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+  }
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Request Conversion</h2>
+  <p>
+    Guardrail automatically converts framework-specific request objects to Web API Request objects.
+    Supported frameworks include:
+  </p>
+  <ul>
+    <li>Express.js</li>
+    <li>Next.js</li>
+    <li>Nest.js</li>
+    <li>Fastify</li>
+    <li>Koa</li>
+  </ul>
+  <p>You can also use <code>Guardrail.toWebRequest()</code> to manually convert requests.</p>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-guardrail" data-route="api-guardrail"><code>guardrail()</code></a> —
+      Create Guardrail instance
+    </li>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield">Shield Rule</a> — Attack protection
+    </li>
+    <li>
+      <a href="docs.html#rule-bot" data-route="rule-bot">Bot Detection</a> — Bot detection rules
+    </li>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window">Sliding Window</a> — Rate limiting
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,261 @@
+<header class="docs-header">
+  <h1 class="docs-title">shield()</h1>
+  <p class="docs-description">
+    Attack protection rule that detects and blocks SQL injection, XSS, command injection, and path
+    traversal attacks.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>shield()</code> rule provides comprehensive attack protection against common web
+    vulnerabilities, including OWASP Top 10 threats. It analyzes request parameters, headers, and
+    body content to detect malicious patterns.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, shield } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">shield</span>(config?: ShieldRuleConfig): ShieldRuleConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>config</code></td>
+        <td><code>ShieldRuleConfig</code></td>
+        <td>Shield configuration options</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ShieldRuleConfig Properties</h3>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>mode</code></td>
+        <td><code>"LIVE" | "DRY_RUN"</code></td>
+        <td>Operation mode. DRY_RUN logs but doesn't block</td>
+        <td><code>"LIVE"</code></td>
+      </tr>
+      <tr>
+        <td><code>categories</code></td>
+        <td><code>ShieldCategory[]</code></td>
+        <td>Attack categories to detect</td>
+        <td>All categories</td>
+      </tr>
+      <tr>
+        <td><code>errorStrategy</code></td>
+        <td><code>"ALLOW" | "DENY"</code></td>
+        <td>Strategy when pattern matching fails</td>
+        <td><code>"DENY"</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ShieldCategory</h3>
+  <p>Available attack categories:</p>
+  <ul>
+    <li><code>"SQL_INJECTION"</code> — SQL injection attacks</li>
+    <li><code>"XSS"</code> — Cross-site scripting</li>
+    <li><code>"COMMAND_INJECTION"</code> — Command injection</li>
+    <li><code>"PATH_TRAVERSAL"</code> — Path traversal attacks</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Protected Attack Types</h2>
+
+  <h3>SQL Injection</h3>
+  <p>Detects various SQL injection patterns including:</p>
+  <ul>
+    <li>SQL keywords (SELECT, INSERT, UPDATE, DELETE, DROP, etc.)</li>
+    <li>Comment-based injection (--, #, /* */)</li>
+    <li>String-based injection (OR/AND conditions)</li>
+    <li>UNION-based injection</li>
+    <li>Time-based blind injection</li>
+    <li>Error-based injection</li>
+    <li>Stacked queries</li>
+  </ul>
+
+  <h3>Cross-Site Scripting (XSS)</h3>
+  <p>Detects XSS patterns including:</p>
+  <ul>
+    <li>Script tags and event handlers</li>
+    <li>JavaScript/VBScript protocols</li>
+    <li>SVG-based XSS</li>
+    <li>Iframe and object injection</li>
+    <li>HTML entity encoding attempts</li>
+  </ul>
+
+  <h3>Command Injection</h3>
+  <p>Detects command injection attempts:</p>
+  <ul>
+    <li>Shell metacharacters (;, |, &, `, $, etc.)</li>
+    <li>Command substitution</li>
+    <li>Process substitution</li>
+    <li>Redirection operators</li>
+  </ul>
+
+  <h3>Path Traversal</h3>
+  <p>Detects path traversal attempts:</p>
+  <ul>
+    <li>Directory traversal sequences (../, ..\)</li>
+    <li>Encoded traversal attempts</li>
+    <li>Absolute path references</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>Basic Usage</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),  <span class="cmt">// Full protection</span>
+  ],
+});</code></pre>
+  </div>
+
+  <h3>Dry Run Mode</h3>
+  <p>Use dry run mode to log attacks without blocking:</p>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>({
+      <span class="prop">mode</span>: <span class="str">"DRY_RUN"</span>,  <span class="cmt">// Log but don't block</span>
+    }),
+  ],
+});</code></pre>
+  </div>
+
+  <h3>Specific Categories</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>({
+      <span class="prop">categories</span>: [<span class="str">"SQL_INJECTION"</span>, <span class="str">"XSS"</span>],  <span class="cmt">// Only these categories</span>
+    }),
+  ],
+});</code></pre>
+  </div>
+
+  <h3>Handling Shield Denials</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req);
+
+<span class="kw">if</span> (decision.<span class="fn">isDenied</span>() && decision.reason.<span class="fn">isShield</span>()) {
+  <span class="kw">const</span> category = decision.reason.category;  <span class="cmt">// "SQL_INJECTION", "XSS", etc.</span>
+  console.<span class="fn">log</span>(<span class="str">`Attack detected: </span>${category}<span class="str">`</span>);
+  <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"Attack detected"</span>, { <span class="prop">status</span>: <span class="num">403</span> });
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>What Gets Scanned</h2>
+  <p>Shield analyzes the following parts of the request:</p>
+  <ul>
+    <li>URL query parameters</li>
+    <li>URL path segments</li>
+    <li>Request headers</li>
+    <li>Request body (JSON, form data, etc.)</li>
+    <li>Cookies</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Performance</h2>
+  <p>
+    Shield uses efficient pattern matching with compiled regular expressions. The scanning process
+    is optimized to minimize performance impact while maintaining comprehensive coverage.
+  </p>
+  <p>
+    For high-traffic applications, consider using Shield in combination with rate limiting to reduce
+    the number of requests that need to be scanned.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Limitations</h2>
+  <ul>
+    <li>Shield is not a replacement for enterprise WAF solutions (Cloudflare, AWS WAF)</li>
+    <li>Pattern matching may have false positives in edge cases</li>
+    <li>Advanced obfuscation techniques may bypass detection</li>
+    <li>For production, consider using Shield alongside other security measures</li>
+  </ul>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#rule-bot" data-route="rule-bot"><code>bot()</code></a> — Bot detection
+    </li>
+    <li>
+      <a href="docs.html#rule-filter" data-route="rule-filter"><code>filter()</code></a> —
+      Expression-based filtering
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

@@ -1,0 +1,154 @@
+<header class="docs-header">
+  <h1 class="docs-title">Testing</h1>
+  <p class="docs-description">Testing utilities and best practices for Guardrail.</p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    Guardrail includes testing utilities that make it easy to test your application's security and
+    rate limiting logic without external dependencies.
+  </p>
+</section>
+
+<section class="docs-section">
+  <h2>Test Utilities</h2>
+  <p>Import testing utilities from the testing module:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> {
+  createTestGuardrail,
+  MockStorage,
+  MockIPGeolocation,
+  createMockRequest,
+} <span class="kw">from</span> <span class="str">"@guardrail-dev/core/testing"</span>;</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Creating Test Instances</h2>
+  <p>Use <code>createTestGuardrail</code> to create a Guardrail instance with mock dependencies:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { createTestGuardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/testing"</span>;
+<span class="kw">import</span> { shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> { guardrail, storage, ipService } = <span class="fn">createTestGuardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">shield</span>(),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Mocking IP Data</h2>
+  <p>Set up mock IP geolocation data for testing:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Mock IP data</span>
+ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, {
+  <span class="prop">country</span>: <span class="str">"US"</span>,
+  <span class="prop">countryName</span>: <span class="str">"United States"</span>,
+  <span class="prop">region</span>: <span class="str">"California"</span>,
+  <span class="prop">city</span>: <span class="str">"San Francisco"</span>,
+  <span class="prop">vpn</span>: <span class="kw">false</span>,
+  <span class="prop">proxy</span>: <span class="kw">false</span>,
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Creating Mock Requests</h2>
+  <p>Use <code>createMockRequest</code> to create test requests:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">const</span> req = <span class="fn">createMockRequest</span>({
+  <span class="prop">url</span>: <span class="str">"https://example.com/api/data"</span>,
+  <span class="prop">method</span>: <span class="str">"POST"</span>,
+  <span class="prop">headers</span>: {
+    <span class="str">"user-agent"</span>: <span class="str">"Mozilla/5.0..."</span>,
+    <span class="str">"x-forwarded-for"</span>: <span class="str">"1.2.3.4"</span>,
+  },
+  <span class="prop">body</span>: { <span class="prop">data</span>: <span class="str">"test"</span> },
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Example Test</h2>
+  <p>Complete example of testing Guardrail:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { describe, it, expect } <span class="kw">from</span> <span class="str">"vitest"</span>;
+<span class="kw">import</span> { createTestGuardrail, createMockRequest } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/testing"</span>;
+<span class="kw">import</span> { shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="fn">describe</span>(<span class="str">"Guardrail Protection"</span>, () => {
+  <span class="fn">it</span>(<span class="str">"should allow legitimate requests"</span>, <span class="kw">async</span> () => {
+    <span class="kw">const</span> { guardrail, ipService } = <span class="fn">createTestGuardrail</span>({
+      <span class="prop">rules</span>: [<span class="fn">shield</span>(), <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> })],
+    });
+
+    ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, { <span class="prop">country</span>: <span class="str">"US"</span> });
+
+    <span class="kw">const</span> req = <span class="fn">createMockRequest</span>({ <span class="prop">url</span>: <span class="str">"https://example.com/api"</span> });
+    <span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(req);
+
+    <span class="fn">expect</span>(decision.<span class="fn">isAllowed</span>()).<span class="fn">toBe</span>(<span class="kw">true</span>);
+  });
+
+  <span class="fn">it</span>(<span class="str">"should block SQL injection attacks"</span>, <span class="kw">async</span> () => {
+    <span class="kw">const</span> { guardrail } = <span class="fn">createTestGuardrail</span>({
+      <span class="prop">rules</span>: [<span class="fn">shield</span>()],
+    });
+
+    <span class="kw">const</span> req = <span class="fn">createMockRequest</span>({
+      <span class="prop">url</span>: <span class="str">"https://example.com/api?q=1' OR '1'='1"</span>,
+    });
+
+    <span class="kw">const</span> decision = <span class="kw">await</span> guardrail.<span class="fn">protect</span>(req);
+    <span class="fn">expect</span>(decision.<span class="fn">isDenied</span>()).<span class="fn">toBe</span>(<span class="kw">true</span>);
+    <span class="fn">expect</span>(decision.reason.<span class="fn">isShield</span>()).<span class="fn">toBe</span>(<span class="kw">true</span>);
+  });
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+    <li>
+      <a href="docs.html#rule-shield" data-route="rule-shield">Shield Rule</a> — Attack protection
+    </li>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window">Rate Limiting</a> — Rate limiting
+      rules
+    </li>
+  </ul>
+</section>

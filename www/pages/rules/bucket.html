@@ -1,0 +1,148 @@
+<header class="docs-header">
+  <h1 class="docs-title">bucket()</h1>
+  <p class="docs-description">
+    Token bucket rate limiting rule for handling bursts and variable consumption rates.
+  </p>
+</header>
+
+<section class="docs-section">
+  <h2>Overview</h2>
+  <p>
+    The <code>bucket()</code> rule implements token bucket rate limiting, which allows bursts of
+    requests while maintaining an average rate. This is ideal for AI quota control and scenarios
+    where request costs vary.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">import</span> { guardrail, bucket } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">bucket</span>({
+      <span class="prop">capacity</span>: <span class="num">5000</span>,
+      <span class="prop">refillRate</span>: <span class="num">2000</span>,
+      <span class="prop">interval</span>: <span class="str">"1h"</span>,
+    }),
+  ],
+});</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Signature</h2>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">function</span> <span class="fn">bucket</span>(config: TokenBucketConfig): TokenBucketConfig</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>Parameters</h2>
+  <table class="docs-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>capacity</code></td>
+        <td><code>number</code></td>
+        <td>Maximum token capacity (burst size)</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>refillRate</code></td>
+        <td><code>number</code></td>
+        <td>Tokens added per interval</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>interval</code></td>
+        <td><code>string</code></td>
+        <td>Refill interval (e.g., "1h", "10m")</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><code>by</code></td>
+        <td><code>string[]</code></td>
+        <td>Rate limit by IP, user ID, etc.</td>
+        <td>No (default: ["ip.src"])</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="docs-section">
+  <h2>Examples</h2>
+
+  <h3>AI Quota Control</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">bucket</span>({
+  <span class="prop">by</span>: [<span class="str">"userId"</span>],
+  <span class="prop">capacity</span>: <span class="num">5000</span>,      <span class="cmt">// Max tokens</span>
+  <span class="prop">refillRate</span>: <span class="num">2000</span>,        <span class="cmt">// 2000 tokens per hour</span>
+  <span class="prop">interval</span>: <span class="str">"1h"</span>,
+})
+
+<span class="cmt">// Usage with token consumption</span>
+<span class="kw">const</span> decision = <span class="kw">await</span> gr.<span class="fn">protect</span>(req, {
+  <span class="prop">userId</span>: <span class="str">"user123"</span>,
+  <span class="prop">requested</span>: estimatedTokens,  <span class="cmt">// Consume tokens</span>
+});</code></pre>
+  </div>
+
+  <h3>Handling Quota Exceeded</h3>
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="kw">if</span> (decision.reason.<span class="fn">isQuota</span>()) {
+  <span class="kw">const</span> remaining = decision.reason.<span class="fn">getRemaining</span>();
+  <span class="kw">return</span> Response.<span class="fn">json</span>(
+    { <span class="prop">error</span>: <span class="str">"Quota exceeded"</span>, remaining },
+    { <span class="prop">status</span>: <span class="num">429</span> }
+  );
+}</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
+  <h2>How Token Bucket Works</h2>
+  <ol>
+    <li>Bucket starts with <code>capacity</code> tokens</li>
+    <li>Each request consumes tokens (default: 1, or use <code>requested</code> option)</li>
+    <li>Tokens are refilled at <code>refillRate</code> per <code>interval</code></li>
+    <li>If bucket is empty, requests are denied</li>
+    <li>Bucket never exceeds <code>capacity</code> (burst limit)</li>
+  </ol>
+</section>
+
+<section class="docs-section">
+  <h2>Related</h2>
+  <ul>
+    <li>
+      <a href="docs.html#rule-window" data-route="rule-window"><code>window()</code></a> — Sliding
+      window rate limiting
+    </li>
+    <li>
+      <a href="docs.html#api-protect" data-route="api-protect"><code>protect()</code></a> — Evaluate
+      requests
+    </li>
+  </ul>
+</section>

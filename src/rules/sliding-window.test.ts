@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { SlidingWindowRule } from "./sliding-window";
-import { slidingWindow } from "./index";
+import { window } from "./index";
 import { MemoryStorage } from "../storage/memory";
 
 describe("SlidingWindowRule", () => {
@@ -10,21 +10,26 @@ describe("SlidingWindowRule", () => {
   beforeEach(() => {
     storage = new MemoryStorage();
     rule = new SlidingWindowRule(
-      slidingWindow({
+      window({
         interval: "1m",
         max: 3,
-        characteristics: ["ip.src"],
+        by: ["ip.src"],
       }),
       storage
     );
   });
 
   it("should allow requests within limit", async () => {
-    const characteristics = { "ip.src": "1.2.3.4" };
+    const context = {
+      characteristics: { "ip.src": "1.2.3.4" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
 
-    const result1 = await rule.evaluate(characteristics);
-    const result2 = await rule.evaluate(characteristics);
-    const result3 = await rule.evaluate(characteristics);
+    const result1 = await rule.evaluate(context);
+    const result2 = await rule.evaluate(context);
+    const result3 = await rule.evaluate(context);
 
     expect(result1.conclusion).toBe("ALLOW");
     expect(result2.conclusion).toBe("ALLOW");
@@ -32,12 +37,17 @@ describe("SlidingWindowRule", () => {
   });
 
   it("should deny requests exceeding limit", async () => {
-    const characteristics = { "ip.src": "1.2.3.4" };
+    const context = {
+      characteristics: { "ip.src": "1.2.3.4" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
 
-    await rule.evaluate(characteristics);
-    await rule.evaluate(characteristics);
-    await rule.evaluate(characteristics);
-    const result4 = await rule.evaluate(characteristics);
+    await rule.evaluate(context);
+    await rule.evaluate(context);
+    await rule.evaluate(context);
+    const result4 = await rule.evaluate(context);
 
     expect(result4.conclusion).toBe("DENY");
     expect(result4.reason).toBe("RATE_LIMIT");
@@ -45,42 +55,62 @@ describe("SlidingWindowRule", () => {
   });
 
   it("should track different IPs separately", async () => {
-    const ip1 = { "ip.src": "1.2.3.4" };
-    const ip2 = { "ip.src": "5.6.7.8" };
+    const context1 = {
+      characteristics: { "ip.src": "1.2.3.4" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
+    const context2 = {
+      characteristics: { "ip.src": "5.6.7.8" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
 
-    await rule.evaluate(ip1);
-    await rule.evaluate(ip1);
-    await rule.evaluate(ip1);
-    await rule.evaluate(ip1); // Should be denied for IP1
+    await rule.evaluate(context1);
+    await rule.evaluate(context1);
+    await rule.evaluate(context1);
+    await rule.evaluate(context1); // Should be denied for IP1
 
-    const result = await rule.evaluate(ip2); // Should be allowed for IP2
+    const result = await rule.evaluate(context2); // Should be allowed for IP2
 
     expect(result.conclusion).toBe("ALLOW");
   });
 
   it("should return remaining count", async () => {
-    const characteristics = { "ip.src": "1.2.3.4" };
+    const context = {
+      characteristics: { "ip.src": "1.2.3.4" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
 
-    const result1 = await rule.evaluate(characteristics);
+    const result1 = await rule.evaluate(context);
     expect(result1.remaining).toBe(2);
 
-    const result2 = await rule.evaluate(characteristics);
+    const result2 = await rule.evaluate(context);
     expect(result2.remaining).toBe(1);
 
-    const result3 = await rule.evaluate(characteristics);
+    const result3 = await rule.evaluate(context);
     expect(result3.remaining).toBe(0);
   });
 
   it("should allow in DRY_RUN mode", async () => {
     const dryRunRule = new SlidingWindowRule(
-      slidingWindow({ interval: "1m", max: 1, mode: "DRY_RUN" }),
+      window({ interval: "1m", max: 1, mode: "DRY_RUN" }),
       storage
     );
 
-    const characteristics = { "ip.src": "1.2.3.4" };
+    const context = {
+      characteristics: { "ip.src": "1.2.3.4" },
+      options: {},
+      metadata: {},
+      ip: {} as any,
+    } as any;
 
-    await dryRunRule.evaluate(characteristics);
-    const result = await dryRunRule.evaluate(characteristics);
+    await dryRunRule.evaluate(context);
+    const result = await dryRunRule.evaluate(context);
 
     expect(result.conclusion).toBe("ALLOW");
   });

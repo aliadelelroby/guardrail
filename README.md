@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/aliadelelroby/guardrail">Documentation</a> ·
+  <a href="https://aliadelelroby.github.io/guardrail/">Documentation</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="https://github.com/aliadelelroby/guardrail/issues">Report Bug</a>
 </p>
@@ -101,10 +101,10 @@ export class AppModule {}
 @Controller("orders")
 export class OrdersController {
   @Post()
-  @RateLimit({ max: 5, interval: "1m" })
+  @Limit({ max: 5, interval: "1m" })
   @Shield()
-  @GuardrailVPNBlock()
-  async create(@Decision() decision: Decision) {
+  @BlockVPN()
+  async create(@Result() decision: Decision) {
     return { id: "123" };
   }
 }
@@ -133,7 +133,7 @@ Seamless integration for Middleware and API Routes.
 export const middleware = guardrailNext.api().middleware();
 
 // app/api/data/route.ts
-export default withGuardrail(async (req, res) => {
+export default protect(async (req, res) => {
   // Secured automatically
 });
 ```
@@ -183,13 +183,13 @@ tokenBucket({
 ### Bot Detection
 
 ```typescript
-import { detectBot } from "@guardrail-dev/core";
+import { bot } from "@guardrail-dev/core";
 
 // Basic detection (User-Agent only)
-detectBot({ allow: [] }); // Block all bots
+bot({ allow: [] }); // Block all bots
 
 // Advanced detection (headers, fingerprinting, behavioral analysis)
-detectBot({
+bot({
   allow: ["Googlebot"],
   analyzeHeaders: true,
   confidenceThreshold: 70,
@@ -475,10 +475,10 @@ const gr = guardrail({
 
 ```typescript
 import { createTestGuardrail } from "@guardrail-dev/core/testing";
-import { shield, slidingWindow } from "@guardrail-dev/core";
+import { shield, window } from "@guardrail-dev/core";
 
 const { guardrail, ipService } = createTestGuardrail({
-  rules: [shield(), slidingWindow({ interval: "1m", max: 100 })],
+  rules: [shield(), window({ interval: "1m", max: 100 })],
 });
 
 // Mock IP data
@@ -505,7 +505,7 @@ const decision = await guardrail.protect(req);
 ### Bot Detection
 
 - Basic detection uses User-Agent matching only
-- **Recommendation**: Use `detectBot()` with configuration for header analysis and behavioral signals
+- **Recommendation**: Use `bot()` with configuration for header analysis and behavioral signals
 - Client-side fingerprinting requires a separate implementation
 
 ### Rate Limiting

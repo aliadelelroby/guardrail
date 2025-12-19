@@ -5,10 +5,18 @@
 
 import { Guardrail } from "../core/guardrail";
 import { GuardrailPresets } from "../core/presets";
-import type { GuardrailConfig, ProtectOptions, Decision } from "../types/index";
+import { buildQuotaRules } from "../utils/quota-builder";
+import { resolveProtectOptions, formatDenialResponse } from "../utils/adapter-utils";
+import type {
+  GuardrailConfig,
+  ProtectOptions,
+  Decision,
+  AdapterOptions,
+  QuotaConfig,
+} from "../types/index";
 
 /**
- * Next.js Request type interface
+ * Next.js Request type interface for Middleware/App Router
  */
 interface NextRequest {
   url: string;
@@ -18,14 +26,20 @@ interface NextRequest {
 }
 
 /**
+ * Next.js-specific options
+ */
+export interface NextGuardrailOptions extends GuardrailConfig, AdapterOptions<any> {}
+
+/**
  * Internal helper to create Next.js protection object
  */
-function createNextAdapter(config: Partial<GuardrailConfig> = {}) {
+function createNextAdapter(config: Partial<NextGuardrailOptions> = {}) {
   const guardrail = new Guardrail(config);
 
-  const protect = async (request: NextRequest, options?: ProtectOptions): Promise<Decision> => {
+  const protect = async (request: any, options?: ProtectOptions): Promise<Decision> => {
     const webRequest = Guardrail.toWebRequest(request);
-    return guardrail.protect(webRequest, options);
+    const protectOptions = resolveProtectOptions(request, config, options);
+    return guardrail.protect(webRequest, protectOptions);
   };
 
   return {
@@ -33,25 +47,20 @@ function createNextAdapter(config: Partial<GuardrailConfig> = {}) {
     /**
      * Next.js Middleware helper
      */
-    middleware: (overrides: Partial<GuardrailConfig> = {}) => {
+    middleware: (overrides: Partial<NextGuardrailOptions> = {}) => {
       const instance = new Guardrail({ ...config, ...overrides });
       return async (req: NextRequest) => {
-        const decision = await instance.protect(Guardrail.toWebRequest(req));
+        const protectOptions = resolveProtectOptions(req, { ...config, ...overrides });
+        const decision = await instance.protect(Guardrail.toWebRequest(req), protectOptions);
 
         if (decision.isDenied()) {
           const headers = Guardrail.getSecurityHeaders(decision);
-          return new Response(
-            JSON.stringify({
-              error: decision.reason.isRateLimit() ? "Rate limit exceeded" : "Forbidden",
-              message: decision.reason.isRateLimit()
-                ? "Too many requests"
-                : "Request denied by security policy",
-            }),
-            {
-              status: decision.reason.isRateLimit() ? 429 : 403,
-              headers: { ...headers, "Content-Type": "application/json" },
-            }
-          );
+          const { status, body } = formatDenialResponse(decision);
+
+          return new Response(JSON.stringify(body), {
+            status,
+            headers: { ...headers, "Content-Type": "application/json" },
+          });
         }
         return null; // Continue
       };
@@ -63,38 +72,63 @@ function createNextAdapter(config: Partial<GuardrailConfig> = {}) {
  * Next.js adapter for Guardrail
  */
 export const guardrailNext = Object.assign(
-  (config: Partial<GuardrailConfig> = {}) => createNextAdapter(config),
+  (config: Partial<NextGuardrailOptions> = {}) => createNextAdapter(config),
   {
-    api: (overrides: Partial<GuardrailConfig> = {}) =>
+    /**
+     * Standard API protection preset
+     */
+    api: (overrides: Partial<NextGuardrailOptions> = {}) =>
       createNextAdapter({ ...GuardrailPresets.api(), ...overrides }),
-    web: (overrides: Partial<GuardrailConfig> = {}) =>
+
+    /**
+     * Web application protection preset
+     */
+    web: (overrides: Partial<NextGuardrailOptions> = {}) =>
       createNextAdapter({ ...GuardrailPresets.web(), ...overrides }),
-    strict: (overrides: Partial<GuardrailConfig> = {}) =>
+
+    /**
+     * Strict protection preset
+     */
+    strict: (overrides: Partial<NextGuardrailOptions> = {}) =>
       createNextAdapter({ ...GuardrailPresets.strict(), ...overrides }),
+
+    /**
+     * Quota-based protection for SaaS apps
+     */
+    quota: (quotaConfig: QuotaConfig, overrides: Partial<NextGuardrailOptions> = {}) =>
+      createNextAdapter({
+        ...overrides,
+        rules: [...(overrides.rules || []), ...buildQuotaRules(quotaConfig)],
+      }),
+
+    /** Alias for quota */
+    subscription: (quotaConfig: QuotaConfig, overrides: Partial<NextGuardrailOptions> = {}) =>
+      guardrailNext.quota(quotaConfig, overrides),
   }
 );
 
 /**
- * Higher-order function to wrap Next.js API routes
+ * Higher-order function to wrap Next.js API routes (Pages Router)
  */
-export function withGuardrail(
+export function protect(
   handler: (req: any, res: any) => Promise<void> | void,
-  config: Partial<GuardrailConfig> = {}
+  config: Partial<NextGuardrailOptions> = {}
 ) {
-  const guardrail = new Guardrail(config);
+  const adapter = createNextAdapter(config);
 
   return async (req: any, res: any) => {
-    const webRequest = Guardrail.toWebRequest(req);
-    const decision = await guardrail.protect(webRequest);
+    const decision = await adapter.protect(req);
 
     const headers = Guardrail.getSecurityHeaders(decision);
     for (const [key, value] of Object.entries(headers)) {
-      if (res.setHeader) res.setHeader(key, value);
+      if (res.setHeader) {res.setHeader(key, value);}
     }
 
     if (decision.isDenied()) {
-      res.status(decision.reason.isRateLimit() ? 429 : 403).json({
-        error: "Denied",
+      const isRateLimit = decision.reason.isRateLimit() || decision.reason.isQuota();
+      res.status(isRateLimit ? 429 : 403).json({
+        error: isRateLimit ? "Rate limit exceeded" : "Forbidden",
+        message: isRateLimit ? "Too many requests" : "Denied by security policy",
         reason: decision.reason,
       });
       return;
@@ -106,4 +140,5 @@ export function withGuardrail(
 }
 
 export { Guardrail } from "../core/guardrail";
+export { window, bucket, bot, email, shield, filter } from "../rules/index";
 export type * from "../types/index";

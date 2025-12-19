@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -21,7 +21,7 @@
     <!-- Navigation -->
     <nav class="nav">
       <div class="nav-container nav-container-fluid">
-        <a href="/" class="nav-logo">
+        <a href="docs.html#index" data-route="index" class="nav-logo">
           <svg
             width="24"
             height="24"
@@ -47,8 +47,8 @@
         </a>
         <div class="nav-links">
           <a href="docs.html" class="nav-link">Docs</a>
-          <a href="#api" class="nav-link">API</a>
-          <a href="#examples" class="nav-link">Examples</a>
+          <a href="docs.html#api-guardrail" data-route="api-guardrail" class="nav-link">API</a>
+          <a href="docs.html#examples" data-route="examples" class="nav-link">Examples</a>
           <a
             href="https://github.com/aliadelelroby/guardrail"
             class="nav-link nav-link-github"
@@ -84,59 +84,90 @@
         <nav>
           <div class="docs-nav-section">
             <div class="docs-nav-title">Getting Started</div>
-            <a href="#getting-started" class="docs-nav-link active">Introduction</a>
-            <a href="#installation" class="docs-nav-link">Installation</a>
-            <a href="#quick-start" class="docs-nav-link">Quick Start</a>
-            <a href="#presets" class="docs-nav-link">Presets</a>
+            <a href="docs.html#index" data-route="index" class="docs-nav-link">Home</a>
+            <a href="docs.html#getting-started" data-route="getting-started" class="docs-nav-link">Introduction</a>
+            <a href="docs.html#installation" data-route="installation" class="docs-nav-link">Installation</a>
+            <a href="docs.html#presets" data-route="presets" class="docs-nav-link">Presets</a>
           </div>
 
           <div class="docs-nav-section">
-            <div class="docs-nav-title">Frameworks</div>
-            <a href="#nextjs" class="docs-nav-link">Next.js</a>
-            <a href="#express" class="docs-nav-link">Express.js</a>
-            <a href="#nestjs" class="docs-nav-link">Nest.js</a>
+            <div class="docs-nav-title">Core API</div>
+            <a href="docs.html#api-guardrail" data-route="api-guardrail" class="docs-nav-link">guardrail()</a>
+            <a href="docs.html#api-protect" data-route="api-protect" class="docs-nav-link">protect()</a>
+            <a href="docs.html#api-checkHealth" data-route="api-checkHealth" class="docs-nav-link">checkHealth()</a>
+            <a href="docs.html#api-getStorage" data-route="api-getStorage" class="docs-nav-link">getStorage()</a>
+            <a href="docs.html#api-getIPService" data-route="api-getIPService" class="docs-nav-link">getIPService()</a>
+            <a href="docs.html#api-getMetrics" data-route="api-getMetrics" class="docs-nav-link">getMetrics()</a>
+            <a href="docs.html#api-on" data-route="api-on" class="docs-nav-link">on()</a>
+            <a href="docs.html#api-addRule" data-route="api-addRule" class="docs-nav-link">addRule()</a>
+            <a href="docs.html#api-explain" data-route="api-explain" class="docs-nav-link">decision.explain()</a>
           </div>
 
           <div class="docs-nav-section">
             <div class="docs-nav-title">Rules</div>
-            <a href="#rules" class="docs-nav-link">Overview</a>
-            <a href="#rate-limiting" class="docs-nav-link">Rate Limiting</a>
-            <a href="#bot-detection" class="docs-nav-link">Bot Detection</a>
-            <a href="#shield" class="docs-nav-link">Shield</a>
-            <a href="#email-validation" class="docs-nav-link">Email Validation</a>
-            <a href="#filter" class="docs-nav-link">Filter Rules</a>
+            <a href="docs.html#rule-shield" data-route="rule-shield" class="docs-nav-link">shield()</a>
+            <a href="docs.html#rule-bot" data-route="rule-bot" class="docs-nav-link">bot()</a>
+            <a href="docs.html#rule-window" data-route="rule-window" class="docs-nav-link">window()</a>
+            <a href="docs.html#rule-bucket" data-route="rule-bucket" class="docs-nav-link">bucket()</a>
+            <a href="docs.html#rule-email" data-route="rule-email" class="docs-nav-link">email()</a>
+            <a href="docs.html#rule-filter" data-route="rule-filter" class="docs-nav-link">filter()</a>
           </div>
 
           <div class="docs-nav-section">
-            <div class="docs-nav-title">Features</div>
-            <a href="#ip-intelligence" class="docs-nav-link">IP Intelligence</a>
-            <a href="#storage" class="docs-nav-link">Storage Backends</a>
-            <a href="#configuration" class="docs-nav-link">Configuration</a>
-            <a href="#metrics" class="docs-nav-link">Metrics & Events</a>
+            <div class="docs-nav-title">Framework Adapters</div>
+            <a href="docs.html#adapter-express" data-route="adapter-express" class="docs-nav-link">Express.js</a>
+            <a href="docs.html#adapter-next" data-route="adapter-next" class="docs-nav-link">Next.js</a>
+            <a href="docs.html#adapter-nestjs" data-route="adapter-nestjs" class="docs-nav-link">Nest.js</a>
+            <a href="docs.html#adapter-fastify" data-route="adapter-fastify" class="docs-nav-link">Fastify</a>
+            <a href="docs.html#adapter-koa" data-route="adapter-koa" class="docs-nav-link">Koa</a>
           </div>
 
           <div class="docs-nav-section">
-            <div class="docs-nav-title">Reference</div>
-            <a href="#api" class="docs-nav-link">API Reference</a>
-            <a href="#examples" class="docs-nav-link">Examples</a>
-            <a href="#testing" class="docs-nav-link">Testing</a>
-            <a href="#limitations" class="docs-nav-link">Limitations</a>
+            <div class="docs-nav-title">Features & Guides</div>
+            <a href="docs.html#feature-quota" data-route="feature-quota" class="docs-nav-link">Quota System (AI/Subscriptions)</a>
+            <a href="docs.html#feature-debug" data-route="feature-debug" class="docs-nav-link">Visual Debug Mode</a>
+            <a href="docs.html#feature-replay" data-route="feature-replay" class="docs-nav-link">Request Replay Tool</a>
+            <a href="docs.html#feature-config-file" data-route="feature-config-file" class="docs-nav-link">Config File Support</a>
+            <a href="docs.html#feature-validation" data-route="feature-validation" class="docs-nav-link">Configuration Validation</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Storage</div>
+            <a href="docs.html#storage-memory" data-route="storage-memory" class="docs-nav-link">MemoryStorage</a>
+            <a href="docs.html#storage-redis" data-route="storage-redis" class="docs-nav-link">RedisStorage</a>
+            <a href="docs.html#storage-atomic-redis" data-route="storage-atomic-redis" class="docs-nav-link">AtomicRedisStorage</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Services</div>
+            <a href="docs.html#service-ip-geolocation" data-route="service-ip-geolocation" class="docs-nav-link">IPGeolocation</a>
+            <a href="docs.html#service-vpn-detection" data-route="service-vpn-detection" class="docs-nav-link">VPNProxyDetection</a>
+            <a href="docs.html#service-ip-providers" data-route="service-ip-providers" class="docs-nav-link">IP Providers</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Utilities</div>
+            <a href="docs.html#util-circuit-breaker" data-route="util-circuit-breaker" class="docs-nav-link">CircuitBreaker</a>
+            <a href="docs.html#util-metrics" data-route="util-metrics" class="docs-nav-link">Metrics</a>
+            <a href="docs.html#util-logger" data-route="util-logger" class="docs-nav-link">Logger</a>
+            <a href="docs.html#util-events" data-route="util-events" class="docs-nav-link">Events</a>
+          </div>
+
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Advanced</div>
+            <a href="docs.html#configuration" data-route="configuration" class="docs-nav-link">Configuration</a>
+            <a href="docs.html#testing" data-route="testing" class="docs-nav-link">Testing</a>
+            <a href="docs.html#examples" data-route="examples" class="docs-nav-link">Examples</a>
           </div>
         </nav>
       </aside>
 
       <!-- Main Content -->
       <main class="docs-content">
-        <header class="docs-header">
-          <h1 class="docs-title">Documentation</h1>
-          <p class="docs-description">
-            Learn how to protect your application with Guardrail's security and rate limiting
-            toolkit.
-          </p>
-        </header>
-
-        <!-- Getting Started -->
-        <section id="getting-started" class="docs-section">
+        <!-- Content will be loaded dynamically by router -->
+        <div style="padding: 48px; text-align: center; color: var(--gray-500);">
+          <p>Loading documentation...</p>
+        </div>
           <h2>Introduction</h2>
           <p>
             Guardrail is an open-source security toolkit that provides rate limiting, bot detection,
@@ -200,7 +231,7 @@
               <button class="docs-code-copy">Copy</button>
             </div>
             <pre><code><span class="kw">import</span> { guardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
-          
+
 <span class="cmt">// 1. Zero-config (uses API preset + auto-detects Redis)</span>
 <span class="kw">const</span> gr = <span class="fn">guardrail</span>();
 
@@ -213,7 +244,7 @@
         </section>
 
         <!-- Next.js -->
-        <section id="nextjs" class="docs-section">
+        <section id="adapter-next" class="docs-section">
           <h2>Next.js Integration</h2>
           <p>Seamlessly protect your Next.js middleware and API routes.</p>
 
@@ -235,9 +266,9 @@
               <span class="docs-code-lang">typescript</span>
               <button class="docs-code-copy">Copy</button>
             </div>
-            <pre><code><span class="kw">import</span> { withGuardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
+            <pre><code><span class="kw">import</span> { protect } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/next"</span>;
 
-<span class="kw">export default</span> <span class="fn">withGuardrail</span>(<span class="kw">async</span> (req, res) => {
+<span class="kw">export default</span> <span class="fn">protect</span>(<span class="kw">async</span> (req, res) => {
   <span class="cmt">// Secured automatically</span>
   res.<span class="fn">json</span>({ <span class="prop">success</span>: <span class="kw">true</span> });
 });</code></pre>
@@ -272,7 +303,7 @@ app.<span class="fn">post</span>(<span class="str">"/login"</span>, <span class=
           <h2>Fastify & Koa</h2>
           <p>Consistent protection for every major framework.</p>
 
-          <h3>Fastify</h3>
+          <h3 id="adapter-fastify">Fastify</h3>
           <div class="docs-code">
             <div class="docs-code-header">
               <span class="docs-code-lang">typescript</span>
@@ -283,7 +314,7 @@ app.<span class="fn">post</span>(<span class="str">"/login"</span>, <span class=
 fastify.<span class="fn">addHook</span>(<span class="str">"preHandler"</span>, <span class="fn">guardrailFastify</span>.<span class="fn">api</span>());</code></pre>
           </div>
 
-          <h3>Koa</h3>
+          <h3 id="adapter-koa">Koa</h3>
           <div class="docs-code">
             <div class="docs-code-header">
               <span class="docs-code-lang">typescript</span>
@@ -296,7 +327,7 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
         </section>
 
         <!-- Nest.js -->
-        <section id="nestjs" class="docs-section">
+        <section id="adapter-nestjs" class="docs-section">
           <h2>Nest.js Integration</h2>
           <p>
             Register Guardrail as a module and use the ultimate decorator-driven security
@@ -331,15 +362,15 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
               <button class="docs-code-copy">Copy</button>
             </div>
             <pre><code><span class="kw">import</span> { Controller, Post } <span class="kw">from</span> <span class="str">"@nestjs/common"</span>;
-<span class="kw">import</span> { RateLimit, Shield, GuardrailVPNBlock, Decision } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
+<span class="kw">import</span> { Limit, Shield, BlockVPN, Result } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/nestjs"</span>;
 
 @<span class="fn">Controller</span>(<span class="str">"payments"</span>)
 @<span class="fn">Shield</span>() <span class="cmt">// Protect all routes in this controller</span>
 <span class="kw">export class</span> <span class="fn">PaymentsController</span> {
   @<span class="fn">Post</span>()
-  @<span class="fn">RateLimit</span>({ <span class="prop">max</span>: <span class="num">5</span>, <span class="prop">interval</span>: <span class="str">"1m"</span> }) <span class="cmt">// Override rate limit</span>
-  @<span class="fn">GuardrailVPNBlock</span>() <span class="cmt">// Shortcut for VPN blocking</span>
-  <span class="kw">async</span> <span class="fn">process</span>(@<span class="fn">Decision</span>() decision: Decision) {
+  @<span class="fn">Limit</span>({ <span class="prop">max</span>: <span class="num">5</span>, <span class="prop">interval</span>: <span class="str">"1m"</span> }) <span class="cmt">// Override rate limit</span>
+  @<span class="fn">BlockVPN</span>() <span class="cmt">// Shortcut for VPN blocking</span>
+  <span class="kw">async</span> <span class="fn">process</span>(@<span class="fn">Result</span>() decision: Decision) {
     <span class="kw">return</span> { <span class="prop">id</span>: decision.id };
   }
 }</code></pre>
@@ -369,24 +400,24 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
                 <td><code>shield()</code></td>
               </tr>
               <tr>
-                <td><code>detectBot</code></td>
+                <td><code>bot</code></td>
                 <td>Bot detection and blocking</td>
-                <td><code>detectBot({ allow: [] })</code></td>
+                <td><code>bot({ allow: [] })</code></td>
               </tr>
               <tr>
-                <td><code>slidingWindow</code></td>
+                <td><code>window</code></td>
                 <td>Rate limiting with sliding window</td>
-                <td><code>slidingWindow({ interval, max })</code></td>
+                <td><code>window({ interval, max })</code></td>
               </tr>
               <tr>
-                <td><code>tokenBucket</code></td>
+                <td><code>bucket</code></td>
                 <td>Rate limiting with token bucket</td>
-                <td><code>tokenBucket({ capacity, refillRate })</code></td>
+                <td><code>bucket({ capacity, refillRate })</code></td>
               </tr>
               <tr>
-                <td><code>validateEmail</code></td>
+                <td><code>email</code></td>
                 <td>Email validation and blocking</td>
-                <td><code>validateEmail({ block: [...] })</code></td>
+                <td><code>email({ block: [...] })</code></td>
               </tr>
               <tr>
                 <td><code>filter</code></td>
@@ -409,9 +440,9 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
               <span class="docs-code-lang">typescript</span>
               <button class="docs-code-copy">Copy</button>
             </div>
-            <pre><code><span class="kw">import</span> { slidingWindow } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+            <pre><code><span class="kw">import</span> { window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
 
-<span class="fn">slidingWindow</span>({
+<span class="fn">window</span>({
   <span class="prop">interval</span>: <span class="str">"10m"</span>,  <span class="cmt">// Time window</span>
   <span class="prop">max</span>: <span class="num">100</span>,          <span class="cmt">// Maximum requests</span>
 });</code></pre>
@@ -425,10 +456,10 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
               <span class="docs-code-lang">typescript</span>
               <button class="docs-code-copy">Copy</button>
             </div>
-            <pre><code><span class="kw">import</span> { tokenBucket } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+            <pre><code><span class="kw">import</span> { bucket } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
 
-<span class="fn">tokenBucket</span>({
-  <span class="prop">characteristics</span>: [<span class="str">"userId"</span>],  <span class="cmt">// Rate limit per user</span>
+<span class="fn">bucket</span>({
+  <span class="prop">by</span>: [<span class="str">"userId"</span>],  <span class="cmt">// Rate limit per user</span>
   <span class="prop">refillRate</span>: <span class="num">2000</span>,             <span class="cmt">// Tokens added per interval</span>
   <span class="prop">interval</span>: <span class="str">"1h"</span>,               <span class="cmt">// Refill interval</span>
   <span class="prop">capacity</span>: <span class="num">5000</span>,               <span class="cmt">// Maximum token capacity</span>
@@ -457,13 +488,13 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
               <span class="docs-code-lang">typescript</span>
               <button class="docs-code-copy">Copy</button>
             </div>
-            <pre><code><span class="kw">import</span> { detectBot } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+            <pre><code><span class="kw">import</span> { bot } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
 
 <span class="cmt">// Block all bots</span>
-<span class="fn">detectBot</span>({ <span class="prop">allow</span>: [] });
+<span class="fn">bot</span>({ <span class="prop">allow</span>: [] });
 
 <span class="cmt">// Allow specific bots</span>
-<span class="fn">detectBot</span>({
+<span class="fn">bot</span>({
   <span class="prop">allow</span>: [<span class="str">"Googlebot"</span>, <span class="str">"Bingbot"</span>, <span class="str">"Slackbot"</span>],
 });</code></pre>
           </div>
@@ -507,9 +538,9 @@ app.<span class="fn">use</span>(<span class="fn">guardrailKoa</span>.<span class
               <span class="docs-code-lang">typescript</span>
               <button class="docs-code-copy">Copy</button>
             </div>
-            <pre><code><span class="kw">import</span> { validateEmail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+            <pre><code><span class="kw">import</span> { email } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
 
-<span class="fn">validateEmail</span>({
+<span class="fn">email</span>({
   <span class="prop">block</span>: [
     <span class="str">"DISPOSABLE"</span>,    <span class="cmt">// Temporary email services</span>
     <span class="str">"INVALID"</span>,       <span class="cmt">// Invalid format</span>
@@ -971,11 +1002,11 @@ gr.<span class="fn">on</span>(<span class="str">"rule.evaluate"</span>, (event) 
             <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
   <span class="prop">rules</span>: [
     <span class="fn">shield</span>(),
-    <span class="fn">detectBot</span>({ <span class="prop">allow</span>: [] }),
-    <span class="fn">validateEmail</span>({
+    <span class="fn">bot</span>({ <span class="prop">allow</span>: [] }),
+    <span class="fn">email</span>({
       <span class="prop">block</span>: [<span class="str">"DISPOSABLE"</span>, <span class="str">"INVALID"</span>, <span class="str">"NO_MX_RECORDS"</span>],
     }),
-    <span class="fn">slidingWindow</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">5</span> }),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"10m"</span>, <span class="prop">max</span>: <span class="num">5</span> }),
   ],
   <span class="prop">whitelist</span>: {
     <span class="prop">ips</span>: [<span class="str">"1.2.3.4"</span>],  <span class="cmt">// Admin IP</span>
@@ -1011,8 +1042,8 @@ gr.<span class="fn">on</span>(<span class="str">"rule.evaluate"</span>, (event) 
             </div>
             <pre><code><span class="kw">const</span> gr = <span class="fn">guardrail</span>({
   <span class="prop">rules</span>: [
-    <span class="fn">tokenBucket</span>({
-      <span class="prop">characteristics</span>: [<span class="str">"userId"</span>],
+    <span class="fn">bucket</span>({
+      <span class="prop">by</span>: [<span class="str">"userId"</span>],
       <span class="prop">refillRate</span>: <span class="num">2000</span>,
       <span class="prop">interval</span>: <span class="str">"1h"</span>,
       <span class="prop">capacity</span>: <span class="num">5000</span>,
@@ -1055,12 +1086,12 @@ gr.<span class="fn">on</span>(<span class="str">"rule.evaluate"</span>, (event) 
               <button class="docs-code-copy">Copy</button>
             </div>
             <pre><code><span class="kw">import</span> { createTestGuardrail } <span class="kw">from</span> <span class="str">"@guardrail-dev/core/testing"</span>;
-<span class="kw">import</span> { shield, slidingWindow } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
+<span class="kw">import</span> { shield, window } <span class="kw">from</span> <span class="str">"@guardrail-dev/core"</span>;
 
 <span class="kw">const</span> { guardrail, storage, ipService } = <span class="fn">createTestGuardrail</span>({
   <span class="prop">rules</span>: [
     <span class="fn">shield</span>(),
-    <span class="fn">slidingWindow</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
+    <span class="fn">window</span>({ <span class="prop">interval</span>: <span class="str">"1m"</span>, <span class="prop">max</span>: <span class="num">100</span> }),
   ],
 });
 
@@ -1109,8 +1140,8 @@ ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, {
           <ul>
             <li>Basic detection uses User-Agent matching only</li>
             <li>
-              <strong>Recommendation</strong>: Use <code>detectBot()</code> with configuration for
-              header analysis and behavioral signals
+              <strong>Recommendation</strong>: Use <code>bot()</code> with configuration for header
+              analysis and behavioral signals
             </li>
             <li>Client-side fingerprinting requires a separate implementation</li>
           </ul>
@@ -1130,11 +1161,11 @@ ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, {
               Guardrail is <strong>not a replacement</strong> for enterprise WAF solutions
               (Cloudflare, AWS WAF)
             </li>
-            <li>Use <code>shield()</code> with configuration for comprehensive OWASP coverage</li>
-          </ul>
-        </section>
       </main>
     </div>
+
+    <!-- Sidebar Overlay -->
+    <div class="docs-sidebar-overlay" aria-hidden="true"></div>
 
     <!-- Mobile Menu Toggle -->
     <button class="docs-menu-toggle" aria-label="Toggle documentation menu">
@@ -1150,6 +1181,7 @@ ipService.<span class="fn">setIP</span>(<span class="str">"1.2.3.4"</span>, {
       </svg>
     </button>
 
+    <script src="docs-router.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -3,7 +3,7 @@
  * @module types/evaluators
  */
 
-import type { RuleResult, IPInfo } from "./index";
+import type { RuleResult, IPInfo, DecisionContext } from "./index";
 
 /**
  * Base interface for all rule evaluators
@@ -23,14 +23,11 @@ export interface RuleEvaluator {
 export interface TokenBucketEvaluator extends RuleEvaluator {
   /**
    * Evaluates token bucket rule
-   * @param characteristics - Request characteristics for key generation
+   * @param context - Decision context for dynamic value resolution
    * @param requested - Number of tokens requested (default: 1)
    * @returns Promise resolving to rule result
    */
-  evaluate(
-    characteristics: Record<string, string | number | undefined>,
-    requested?: number
-  ): Promise<RuleResult>;
+  evaluate(context: DecisionContext, requested?: number): Promise<RuleResult>;
 }
 
 /**
@@ -39,12 +36,10 @@ export interface TokenBucketEvaluator extends RuleEvaluator {
 export interface SlidingWindowEvaluator extends RuleEvaluator {
   /**
    * Evaluates sliding window rule
-   * @param characteristics - Request characteristics for key generation
+   * @param context - Decision context for dynamic value resolution
    * @returns Promise resolving to rule result
    */
-  evaluate(
-    characteristics: Record<string, string | number | undefined>
-  ): Promise<RuleResult>;
+  evaluate(context: DecisionContext): Promise<RuleResult>;
 }
 
 /**

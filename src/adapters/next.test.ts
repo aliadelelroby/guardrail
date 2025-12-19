@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from "vitest";
-import { guardrailNext, withGuardrail } from "./next";
-import { detectBot } from "../rules/index";
+import { guardrailNext, protect } from "./next";
+import { bot } from "../rules/index";
 
 describe("guardrailNext", () => {
   it("should provide middleware helper", async () => {
@@ -20,7 +20,7 @@ describe("guardrailNext", () => {
 
   it("should return Response for denied requests in middleware", async () => {
     const gn = guardrailNext({
-      rules: [detectBot({ allow: [] })],
+      rules: [bot({ allow: [] })],
     });
     const middleware = gn.middleware();
 
@@ -35,12 +35,12 @@ describe("guardrailNext", () => {
     expect(response?.status).toBe(403);
   });
 
-  it("should wrap API routes with withGuardrail", async () => {
+  it("should wrap API routes with protect", async () => {
     const handler = async (req: any, res: any) => {
       res.json({ success: true });
     };
 
-    const wrapped = withGuardrail(handler, { rules: [] });
+    const wrapped = protect(handler, { rules: [] });
 
     const req = {
       url: "https://example.com/api",
