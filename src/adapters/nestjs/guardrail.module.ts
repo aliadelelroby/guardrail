@@ -10,7 +10,7 @@ import {
   type Provider,
   type FactoryProvider,
 } from "@nestjs/common";
-import { APP_GUARD, APP_INTERCEPTOR, Reflector } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR, Reflector, HttpAdapterHost } from "@nestjs/core";
 import { Guardrail } from "../../core/guardrail";
 import type { GuardrailConfig } from "../../types/index";
 import { GuardrailGuard } from "./guardrail.guard";
@@ -143,17 +143,23 @@ export class GuardrailModule {
     if (options.showRouteProtection ?? options.debug) {
       providers.push({
         provide: RouteProtectionLogger,
-        useFactory: (reflector: Reflector): RouteProtectionLogger => {
-          return new RouteProtectionLogger(reflector, options);
+        useFactory: (
+          reflector: Reflector,
+          httpAdapterHost: HttpAdapterHost
+        ): RouteProtectionLogger => {
+          return new RouteProtectionLogger(reflector, options, httpAdapterHost);
         },
-        inject: [Reflector],
+        inject: [Reflector, HttpAdapterHost],
       });
     }
 
     return {
       module: GuardrailModule,
       providers,
-      exports: [Guardrail, ...(options.showRouteProtection ?? options.debug ? [RouteProtectionLogger] : [])],
+      exports: [
+        Guardrail,
+        ...((options.showRouteProtection ?? options.debug) ? [RouteProtectionLogger] : []),
+      ],
     };
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@guardrail-dev/core",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Advanced rate limiting and security protection library - an open-source alternative to Arcjet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
