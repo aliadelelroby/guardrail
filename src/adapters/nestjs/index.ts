@@ -5,6 +5,7 @@
 
 export { GuardrailModule, type GuardrailModuleOptions } from "./guardrail.module";
 export { GuardrailGuard } from "./guardrail.guard";
+export { RouteProtectionLogger } from "./route-protection-logger";
 export {
   Limit,
   TokenBucket,

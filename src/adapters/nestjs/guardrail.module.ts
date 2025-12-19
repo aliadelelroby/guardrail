@@ -15,6 +15,7 @@ import { Guardrail } from "../../core/guardrail";
 import type { GuardrailConfig } from "../../types/index";
 import { GuardrailGuard } from "./guardrail.guard";
 import { GuardrailInterceptor } from "./guardrail.interceptor";
+import { RouteProtectionLogger } from "./route-protection-logger";
 
 /**
  * Guardrail module configuration
@@ -62,6 +63,13 @@ export interface GuardrailModuleOptions extends GuardrailConfig {
    * Default: true if NODE_ENV !== "production", false otherwise
    */
   allowPrivateIPs?: boolean;
+
+  /**
+   * Show route protection details during application startup.
+   * When enabled, logs which routes are protected, skipped, or unprotected.
+   * Default: true if debug mode is enabled, false otherwise
+   */
+  showRouteProtection?: boolean;
 }
 
 /**
@@ -131,10 +139,21 @@ export class GuardrailModule {
       });
     }
 
+    // Add route protection logger if enabled
+    if (options.showRouteProtection ?? options.debug) {
+      providers.push({
+        provide: RouteProtectionLogger,
+        useFactory: (reflector: Reflector): RouteProtectionLogger => {
+          return new RouteProtectionLogger(reflector, options);
+        },
+        inject: [Reflector],
+      });
+    }
+
     return {
       module: GuardrailModule,
       providers,
-      exports: [Guardrail],
+      exports: [Guardrail, ...(options.showRouteProtection ?? options.debug ? [RouteProtectionLogger] : [])],
     };
   }
 
