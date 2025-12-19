@@ -12,13 +12,14 @@ import { shield, bot, window, bucket, email } from "../rules/index";
 export const GuardrailPresets = {
   /**
    * Standard API protection
-   * - Block common web attacks (SQLi, XSS, etc.)
+   * - Block common web attacks (SQLi, XSS, etc.) via Shield (scanBody: false by default to avoid JSON false positives)
    * - Block common zero-value bots
-   * - moderate rate limit (100 requests / minute)
+   * - Moderate rate limit (100 requests / minute)
+   * - FAIL_OPEN error handling for high availability
    */
   api: (): GuardrailConfig => ({
     rules: [
-      shield(),
+      shield(), // scanBody defaults to false to avoid false positives with JSON
       bot({ allow: [] }), // Block generic bots
       window({ interval: "1m", max: 100 }),
     ],

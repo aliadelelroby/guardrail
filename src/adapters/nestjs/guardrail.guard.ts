@@ -5,6 +5,7 @@
 
 import { Injectable, Optional, type CanActivate, type ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { LRUCache } from "lru-cache";
 import { Guardrail } from "../../core/guardrail";
 import { GuardrailPresets } from "../../core/presets";
 import type { ProtectOptions, GuardrailRule, Decision } from "../../types/index";
@@ -19,7 +20,19 @@ import { resolveProtectOptions, formatDenialResponse } from "../../utils/adapter
  */
 @Injectable()
 export class GuardrailGuard implements CanActivate {
-  private static readonly instanceCache = new Map<string, Guardrail>();
+  private static readonly instanceCache = new LRUCache<string, Guardrail>({
+    max: 100, // Maximum 100 cached instances
+    ttl: 1000 * 60 * 60, // 1 hour TTL
+    // Cleanup callback to prevent memory leaks - call destroy() when instances are evicted
+    dispose: (value) => {
+      try {
+        value.destroy();
+      } catch (error) {
+        // Log but don't throw - cleanup errors shouldn't break the application
+        console.warn("[GuardrailGuard] Error cleaning up Guardrail instance:", error);
+      }
+    },
+  });
 
   constructor(
     private readonly guardrail: Guardrail,
@@ -120,18 +133,9 @@ export class GuardrailGuard implements CanActivate {
       }
     };
 
-    setHeader("X-Guardrail-Id", decision.id);
-    setHeader("X-Guardrail-Conclusion", decision.conclusion);
-
-    const rateLimitResult = decision.results.find(
-      (r) => (r.rule === "slidingWindow" || r.rule === "tokenBucket") && r.remaining !== undefined
-    );
-
-    if (rateLimitResult?.remaining !== undefined) {
-      setHeader("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
-      if (rateLimitResult.reset) {
-        setHeader("X-RateLimit-Reset", Math.ceil(rateLimitResult.reset / 1000).toString());
-      }
+    const headers = Guardrail.getSecurityHeaders(decision);
+    for (const [name, value] of Object.entries(headers)) {
+      setHeader(name, value);
     }
   }
 

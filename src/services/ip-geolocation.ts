@@ -40,12 +40,26 @@ interface IPApiComResponse {
 }
 
 /**
- * IP geolocation service using free APIs with caching
+ * IP geolocation provider interface
+ */
+interface IPGeolocationProvider {
+  name: string;
+  lookup(ip: string, timeoutMs?: number): Promise<IPInfo>;
+  isHealthy(): boolean;
+}
+
+/**
+ * IP geolocation service using free APIs with caching and fallback chain
  */
 export class IPGeolocation implements IPGeolocationService {
   private readonly storage?: StorageAdapter;
   private readonly cache = new Map<string, { data: IPInfo; expires: number }>();
   private readonly cacheTtl: number;
+  private readonly providers: IPGeolocationProvider[] = [];
+  private providerHealth = new Map<
+    string,
+    { failures: number; lastFailure: number; healthy: boolean }
+  >();
 
   /**
    * Creates a new IPGeolocation instance
@@ -55,6 +69,112 @@ export class IPGeolocation implements IPGeolocationService {
   constructor(storage?: StorageAdapter, cacheTtl: number = 24 * 60 * 60 * 1000) {
     this.storage = storage;
     this.cacheTtl = cacheTtl;
+
+    // Initialize providers with health tracking
+    this.providers = [
+      {
+        name: "ipapi.co",
+        lookup: (ip: string, timeoutMs?: number) => this.fetchFromIpApiCo(ip, timeoutMs),
+        isHealthy: () => this.isProviderHealthy("ipapi.co"),
+      },
+      {
+        name: "ip-api.com",
+        lookup: (ip: string, timeoutMs?: number) => this.fetchFromIpApiCom(ip, timeoutMs),
+        isHealthy: () => this.isProviderHealthy("ip-api.com"),
+      },
+    ];
+
+    // Initialize health tracking
+    for (const provider of this.providers) {
+      this.providerHealth.set(provider.name, { failures: 0, lastFailure: 0, healthy: true });
+    }
+  }
+
+  /**
+   * Checks if a provider is healthy (not too many recent failures)
+   * Improved health tracking with automatic recovery mechanism
+   */
+  private isProviderHealthy(name: string): boolean {
+    const health = this.providerHealth.get(name);
+    if (!health) {
+      return true;
+    }
+
+    // Provider is unhealthy if it has 3+ failures in the last 5 minutes
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const isRecentlyFailed = health.lastFailure > fiveMinutesAgo;
+
+    // Automatic recovery: if provider has been healthy for 10 minutes, reset failure count
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    if (!isRecentlyFailed && health.lastFailure < tenMinutesAgo && health.failures > 0) {
+      // Provider has recovered - reset failure count
+      health.failures = 0;
+      health.healthy = true;
+      this.providerHealth.set(name, health);
+    }
+
+    if (health.failures >= 3 && isRecentlyFailed) {
+      return false;
+    }
+
+    // Reset failures if last failure was more than 5 minutes ago
+    if (health.lastFailure < fiveMinutesAgo && health.failures > 0) {
+      health.failures = 0;
+      health.healthy = true;
+      this.providerHealth.set(name, health);
+    }
+
+    return health.healthy;
+  }
+
+  /**
+   * Records a provider failure
+   * Improved tracking with automatic recovery threshold
+   */
+  private recordProviderFailure(name: string): void {
+    const health = this.providerHealth.get(name) || { failures: 0, lastFailure: 0, healthy: true };
+    health.failures += 1;
+    health.lastFailure = Date.now();
+
+    // Cap failure count to prevent unbounded growth
+    // After 10 consecutive failures, mark as permanently unhealthy until manual reset
+    if (health.failures > 10) {
+      health.failures = 10; // Cap at 10
+    }
+
+    if (health.failures >= 3) {
+      health.healthy = false;
+    }
+    this.providerHealth.set(name, health);
+  }
+
+  /**
+   * Records a provider success
+   * Improved recovery mechanism with faster reset on consecutive successes
+   */
+  private recordProviderSuccess(name: string): void {
+    const health = this.providerHealth.get(name) || { failures: 0, lastFailure: 0, healthy: true };
+    const timeSinceLastFailure = Date.now() - health.lastFailure;
+
+    // Faster recovery: reduce failure count more aggressively on success
+    // If we have 2+ consecutive successes, reset failure count faster
+    if (health.failures > 0) {
+      if (timeSinceLastFailure > 2 * 60 * 1000) {
+        // If it's been more than 2 minutes since last failure, reset completely
+        health.failures = 0;
+        health.healthy = true;
+      } else {
+        // Otherwise, reduce by 2 for faster recovery
+        health.failures = Math.max(0, health.failures - 2);
+        if (health.failures === 0) {
+          health.healthy = true;
+        }
+      }
+    } else {
+      health.healthy = true;
+    }
+
+    this.providerHealth.set(name, health);
   }
 
   /**
@@ -95,38 +215,105 @@ export class IPGeolocation implements IPGeolocationService {
       }
     }
 
-    try {
-      const info = await this.fetchIPInfo(ip);
+    // Try providers in order, skipping unhealthy ones
+    const healthyProviders = this.providers.filter((p) => p.isHealthy());
+    const allProviders = healthyProviders.length > 0 ? healthyProviders : this.providers;
 
-      // Update local cache
-      this.cache.set(ip, {
-        data: info,
-        expires: Date.now() + this.cacheTtl,
-      });
+    // Overall timeout for entire lookup operation (15 seconds)
+    // Prevents excessive delays if all providers are slow/failing
+    const overallTimeoutMs = 15000;
+    const lookupStartTime = Date.now();
 
-      // Update distributed storage cache if available
-      if (this.storage) {
-        try {
-          await this.storage.set(`ip-cache:${ip}`, JSON.stringify(info), this.cacheTtl);
-        } catch (e) {
-          console.warn("[Guardrail] Failed to write to IP storage cache:", e);
-        }
-      }
-
-      return info;
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("429")) {
+    for (let i = 0; i < allProviders.length; i++) {
+      // Check overall timeout before trying next provider
+      const elapsed = Date.now() - lookupStartTime;
+      if (elapsed >= overallTimeoutMs) {
         console.warn(
-          `[Guardrail] IP Geolocation rate limit hit (HTTP 429). Falling back to basic info. Consider using a premium provider for production: https://guardrail.dev/docs/ip-intelligence`
+          `[Guardrail] IP geolocation lookup exceeded overall timeout (${overallTimeoutMs}ms). Using default info.`
         );
-      } else {
-        console.warn(`[Guardrail] Failed to fetch IP info for ${ip}:`, error);
+        return this.getDefaultIPInfo();
       }
-      return this.getDefaultIPInfo();
+
+      const provider = allProviders[i];
+      try {
+        // Calculate remaining time for this provider attempt
+        const remainingTime = overallTimeoutMs - elapsed;
+        if (remainingTime <= 0) {
+          break; // No time left
+        }
+
+        // Use remaining time for provider timeout (max 10s, but respect overall timeout)
+        const providerTimeout = Math.min(remainingTime, 10000);
+        const info = await provider.lookup(ip, providerTimeout);
+
+        // Record success
+        this.recordProviderSuccess(provider.name);
+
+        // Update local cache
+        this.cache.set(ip, {
+          data: info,
+          expires: Date.now() + this.cacheTtl,
+        });
+
+        // Update distributed storage cache if available
+        if (this.storage) {
+          try {
+            await this.storage.set(`ip-cache:${ip}`, JSON.stringify(info), this.cacheTtl);
+          } catch (e) {
+            console.warn("[Guardrail] Failed to write to IP storage cache:", e);
+          }
+        }
+
+        return info;
+      } catch (error) {
+        // Record failure
+        this.recordProviderFailure(provider.name);
+
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isRateLimit = errorMessage.includes("429") || errorMessage.includes("rate limit");
+
+        if (isRateLimit) {
+          console.warn(
+            `[Guardrail] IP Geolocation provider ${provider.name} rate limit hit. Trying next provider...`
+          );
+        } else {
+          console.warn(
+            `[Guardrail] IP Geolocation provider ${provider.name} failed: ${errorMessage}. Trying next provider...`
+          );
+        }
+
+        // Exponential backoff before trying next provider (except for last provider)
+        // But respect overall timeout
+        if (i < allProviders.length - 1) {
+          const elapsed = Date.now() - lookupStartTime;
+          const remainingTime = overallTimeoutMs - elapsed;
+          if (remainingTime > 0) {
+            const backoffMs = Math.min(
+              100 * Math.pow(2, i),
+              Math.min(2000, remainingTime - 100) // Don't exceed remaining time (leave 100ms buffer)
+            );
+            if (backoffMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            }
+          }
+        }
+
+        // Continue to next provider
+        continue;
+      }
     }
+
+    // All providers failed, return default
+    console.warn(
+      `[Guardrail] All IP geolocation providers failed for ${ip}. Using default info. Consider using a premium provider for production: https://guardrail.dev/docs/ip-intelligence`
+    );
+    return this.getDefaultIPInfo();
   }
 
-  private async fetchIPInfo(ip: string): Promise<IPInfo> {
+  /**
+   * Fetches IP info from ipapi.co
+   */
+  private async fetchFromIpApiCo(ip: string, timeoutMs: number = 10000): Promise<IPInfo> {
     // IP is already validated in lookup(), but validate again for safety
     try {
       validateIP(ip);
@@ -139,7 +326,7 @@ export class IPGeolocation implements IPGeolocationService {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
         const response = await fetch(`https://ipapi.co/${encodedIP}/json/`, {
@@ -188,11 +375,19 @@ export class IPGeolocation implements IPGeolocationService {
       if (e instanceof Error && e.name === "AbortError") {
         throw new Error("API request timeout");
       }
+      throw e;
+    }
+  }
 
-      const encodedIP = encodeURIComponent(ip);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+  /**
+   * Fetches IP info from ip-api.com
+   */
+  private async fetchFromIpApiCom(ip: string, timeoutMs: number = 10000): Promise<IPInfo> {
+    const encodedIP = encodeURIComponent(ip);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    try {
       const response = await fetch(`https://ip-api.com/json/${encodedIP}`, {
         signal: controller.signal,
       });
@@ -222,6 +417,12 @@ export class IPGeolocation implements IPGeolocationService {
         asnName: data.org,
         asnType: this.inferASNType(data.org || ""),
       };
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        throw new Error("API request timeout");
+      }
+      throw fetchError;
     }
   }
 

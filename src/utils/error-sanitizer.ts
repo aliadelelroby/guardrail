@@ -27,29 +27,86 @@ export function sanitizeError(error: unknown, includeDetails: boolean = !isProdu
     // In development or when details are requested, include more info
     let message = error.message;
 
-    // Remove file system paths
-    message = message.replace(/\/[^\s]+/g, "[path]");
+    // Remove file system paths (Unix-style)
+    message = message.replace(/\/[^\s"']+/g, "[path]");
+    // Remove paths in quotes
+    message = message.replace(/["']\/[^"']+["']/g, '"[path]"');
 
-    // Remove absolute paths
-    message = message.replace(/[A-Z]:\\[^\s]+/g, "[path]");
+    // Remove absolute paths (Windows-style)
+    message = message.replace(/[A-Z]:\\[^\s"']+/gi, "[path]");
+    // Remove Windows paths in quotes
+    message = message.replace(/["'][A-Z]:\\[^"']+["']/gi, '"[path]"');
+
+    // Remove UNC paths (\\server\share)
+    message = message.replace(/\\\\[^\s"']+/g, "[path]");
 
     // Remove user home directory references
     const homeDir = process.env.HOME || process.env.USERPROFILE || "";
     if (homeDir) {
-      message = message.replace(
-        new RegExp(homeDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"),
-        "[home]"
-      );
+      const escapedHomeDir = homeDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      message = message.replace(new RegExp(escapedHomeDir, "gi"), "[home]");
     }
+
+    // Remove common sensitive patterns
+    // API keys, tokens
+    message = message.replace(
+      /[Aa][Pp][Ii][_-]?[Kk][Ee][Yy][\s:=]+[A-Za-z0-9_-]{20,}/g,
+      "[api-key]"
+    );
+    message = message.replace(/[Tt][Oo][Kk][Ee][Nn][\s:=]+[A-Za-z0-9_-]{20,}/g, "[token]");
+    message = message.replace(/[Ss][Ee][Cc][Rr][Ee][Tt][\s:=]+[A-Za-z0-9_-]{20,}/g, "[secret]");
+
+    // Email addresses
+    message = message.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g, "[email]");
+
+    // IP addresses (but keep localhost/127.0.0.1 for debugging)
+    message = message.replace(
+      /\b(?!(?:127\.0\.0\.1|localhost)\b)(?:\d{1,3}\.){3}\d{1,3}\b/g,
+      "[ip]"
+    );
+
+    // URLs with credentials
+    message = message.replace(/https?:\/\/[^:\s]+:[^@\s]+@[^\s]+/g, "[url-with-credentials]");
 
     return message;
   }
 
   if (typeof error === "string") {
-    // Sanitize string errors
+    // Sanitize string errors using the same patterns
     let message = error;
-    message = message.replace(/\/[^\s]+/g, "[path]");
-    message = message.replace(/[A-Z]:\\[^\s]+/g, "[path]");
+
+    // Remove file system paths (Unix-style)
+    message = message.replace(/\/[^\s"']+/g, "[path]");
+    message = message.replace(/["']\/[^"']+["']/g, '"[path]"');
+
+    // Remove absolute paths (Windows-style)
+    message = message.replace(/[A-Z]:\\[^\s"']+/gi, "[path]");
+    message = message.replace(/["'][A-Z]:\\[^"']+["']/gi, '"[path]"');
+
+    // Remove UNC paths
+    message = message.replace(/\\\\[^\s"']+/g, "[path]");
+
+    // Remove user home directory references
+    const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+    if (homeDir) {
+      const escapedHomeDir = homeDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      message = message.replace(new RegExp(escapedHomeDir, "gi"), "[home]");
+    }
+
+    // Remove sensitive patterns
+    message = message.replace(
+      /[Aa][Pp][Ii][_-]?[Kk][Ee][Yy][\s:=]+[A-Za-z0-9_-]{20,}/g,
+      "[api-key]"
+    );
+    message = message.replace(/[Tt][Oo][Kk][Ee][Nn][\s:=]+[A-Za-z0-9_-]{20,}/g, "[token]");
+    message = message.replace(/[Ss][Ee][Cc][Rr][Ee][Tt][\s:=]+[A-Za-z0-9_-]{20,}/g, "[secret]");
+    message = message.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g, "[email]");
+    message = message.replace(
+      /\b(?!(?:127\.0\.0\.1|localhost)\b)(?:\d{1,3}\.){3}\d{1,3}\b/g,
+      "[ip]"
+    );
+    message = message.replace(/https?:\/\/[^:\s]+:[^@\s]+@[^\s]+/g, "[url-with-credentials]");
+
     return message;
   }
 

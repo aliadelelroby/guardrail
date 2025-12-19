@@ -92,28 +92,30 @@ const XSS_PATTERNS = [
 
 /**
  * Command injection patterns
+ * Refined to only match in suspicious contexts to reduce false positives
  */
 const COMMAND_INJECTION_PATTERNS = [
-  // Shell metacharacters
-  /[;&|`$(){}[\]<>]/,
-  // Command substitution
+  // Shell metacharacters followed by commands (most suspicious)
+  /[;&|`]\s*(cat|ls|pwd|whoami|id|uname|ps|kill|rm|mv|cp|chmod|chown|wget|curl|nc|netcat|bash|sh|zsh|perl|python|ruby|php|node|cmd|powershell)/i,
+  // Command substitution (always suspicious)
   /\$\([^)]+\)/,
   /`[^`]+`/,
-  // Shell commands
-  /\b(cat|ls|pwd|whoami|id|uname|ps|kill|rm|mv|cp|chmod|chown|wget|curl|nc|netcat|bash|sh|zsh|perl|python|ruby|php|node)\b/i,
-  // Common attack commands
+  // Suspicious shell metacharacters at start/end or with newlines
+  /^[;&|`$]|[\r\n][;&|`$]/,
+  /[;&|`$][\r\n]/,
+  // Commands with path traversal (suspicious combination)
+  /(cat|ls|pwd|whoami|id|uname|ps|kill|rm|mv|cp|chmod|chown|wget|curl|nc|netcat|bash|sh|zsh|perl|python|ruby|php|node|cmd|powershell).*\.\.[/\\]/i,
+  // Network/attack commands (always suspicious in user input)
   /\b(ping|nslookup|dig|traceroute|telnet|ssh|ftp|tftp|scp|rsync)\b/i,
-  // Windows commands
+  // Windows system commands (always suspicious)
   /\b(cmd|powershell|wscript|cscript|reg|net|tasklist|taskkill|systeminfo)\b/i,
-  // Path traversal in commands
-  /\.\.[/\\]/,
-  // Null byte injection
+  // Environment variable access in suspicious contexts
+  /[;&|`$]\s*\$\{[^}]+\}/,
+  /[;&|`$]\s*\$[A-Z_]+/,
+  // Null byte injection (always suspicious)
   /%00/,
-  // Newline injection
-  /[\r\n]/,
-  // Environment variable access
-  /\$\{[^}]+\}/,
-  /\$[A-Z_]+/,
+  // Newline injection with commands
+  /[\r\n]\s*(cat|ls|pwd|whoami|id|uname|ps|kill|rm|mv|cp|chmod|chown|wget|curl|nc|netcat|bash|sh|zsh|perl|python|ruby|php|node|cmd|powershell)/i,
 ];
 
 /**
@@ -136,8 +138,16 @@ const PATH_TRAVERSAL_PATTERNS = [
 
 /**
  * LDAP injection patterns
+ * Note: LDAP special characters are only suspicious in specific contexts
+ * Parentheses are common in URLs/JSON, so we only match in suspicious combinations
  */
-const LDAP_INJECTION_PATTERNS = [/[()\\*|&=!<>~]/, /\x00/, /%00/];
+const LDAP_INJECTION_PATTERNS = [
+  // LDAP filter operators in suspicious contexts
+  /\([^)]*[\\*|&=!<>~][^)]*\)/, // Parentheses with LDAP operators inside
+  /[\\*|&=!<>~].*\(|\).*[\\*|&=!<>~]/, // Operators near parentheses
+  /\x00/, // Null byte
+  /%00/, // URL-encoded null byte
+];
 
 /**
  * XML/XXE injection patterns
@@ -200,6 +210,14 @@ export interface ShieldRuleConfig extends ShieldConfig {
   skipHeaders?: string[];
   /** Log matched patterns */
   logMatches?: boolean;
+  /** Enable OWASP CRS-style anomaly scoring (default: false) */
+  anomalyScoring?: boolean;
+  /** Anomaly score threshold per category (default: 100). OWASP CRS recommends starting high (10,000) and gradually lowering. */
+  anomalyThreshold?: number;
+  /** Pattern scores - how many points each pattern match adds */
+  patternScores?: Record<ShieldCategory, number>;
+  /** Endpoint-specific pattern whitelists (manual configuration only) */
+  endpointWhitelists?: Record<string, Array<string | RegExp>>;
 }
 
 /**
@@ -225,6 +243,7 @@ export interface ShieldDetectionResult {
   pattern?: string;
   location?: "url" | "body" | "headers" | "query";
   matchedValue?: string;
+  anomalyScore?: number;
 }
 
 /**
@@ -253,19 +272,73 @@ export class ShieldRule {
   private readonly scanHeaders: boolean;
   private readonly maxBodySize: number;
   private readonly skipHeaders: Set<string>;
+  private readonly anomalyScoring: boolean;
+  private readonly anomalyThreshold: number;
+  private readonly patternScores: Map<ShieldCategory, number>;
+  private readonly endpointWhitelists: Map<string, Set<string>>;
+  private readonly weakKeywordPatternIndex: number; // Index of weak SQL keyword pattern for reliable comparison
 
   constructor(config: ShieldRuleConfig) {
     this.config = config;
-    this.categories = new Set(
-      config.categories || ["sql-injection", "xss", "command-injection", "path-traversal"]
-    );
+    this.categories = new Set(config.categories || ["sql-injection", "xss", "path-traversal"]);
     this.patterns = new Map();
-    this.scanBody = config.scanBody ?? true;
+    this.scanBody = config.scanBody ?? false;
     this.scanHeaders = config.scanHeaders ?? true;
     this.maxBodySize = config.maxBodySize ?? 1024 * 1024; // 1MB default
     this.skipHeaders = new Set(
       (config.skipHeaders || ["authorization", "cookie"]).map((h) => h.toLowerCase())
     );
+    this.anomalyScoring = config.anomalyScoring ?? false;
+    // OWASP CRS recommends starting with high threshold (10,000) and gradually lowering
+    // Default of 100 is conservative to minimize false positives
+    this.anomalyThreshold = config.anomalyThreshold ?? 100;
+
+    // Default pattern scores (weak signals = 1, strong signals = 5)
+    const defaultScores: Record<ShieldCategory, number> = {
+      "sql-injection": 3,
+      xss: 3,
+      "command-injection": 5,
+      "path-traversal": 4,
+      "ldap-injection": 4,
+      xxe: 5,
+      "header-injection": 4,
+      "log-injection": 2,
+      anomaly: 2,
+    };
+
+    this.patternScores = new Map();
+    for (const category of this.categories) {
+      this.patternScores.set(
+        category,
+        config.patternScores?.[category] ?? defaultScores[category] ?? 3
+      );
+    }
+
+    // Build endpoint whitelist map (manual configuration only - safe)
+    // Validate endpoint patterns at construction time to catch configuration errors early
+    this.endpointWhitelists = new Map();
+    if (config.endpointWhitelists) {
+      for (const [endpoint, patterns] of Object.entries(config.endpointWhitelists)) {
+        // Validate endpoint regex pattern if it's meant to be a regex
+        // (endpoints can be strings for exact match, or regex patterns)
+        if (endpoint.startsWith("/") && endpoint.endsWith("/")) {
+          // Looks like a regex pattern, validate it
+          try {
+            new RegExp(endpoint.slice(1, -1)); // Remove leading/trailing slashes
+          } catch (error) {
+            throw new Error(
+              `Invalid endpoint regex pattern in ShieldRuleConfig: "${endpoint}". ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
+
+        const patternSet = new Set<string>();
+        for (const pattern of patterns) {
+          patternSet.add(typeof pattern === "string" ? pattern : pattern.source);
+        }
+        this.endpointWhitelists.set(endpoint, patternSet);
+      }
+    }
 
     // Validate and build pattern map
     if (config.customPatterns) {
@@ -274,7 +347,15 @@ export class ShieldRule {
       }
     }
 
-    // Build pattern map
+    // Build pattern map and find weak keyword pattern index for reliable comparison
+    const weakKeywordPattern =
+      /\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|TRUNCATE|REPLACE|MERGE)\b/i;
+    const sqlPatterns = CATEGORY_PATTERNS["sql-injection"];
+    // Find index of weak pattern in original patterns (more reliable than string comparison)
+    this.weakKeywordPatternIndex = sqlPatterns.findIndex(
+      (p) => p.source === weakKeywordPattern.source && p.flags === weakKeywordPattern.flags
+    );
+
     for (const category of this.categories) {
       const categoryPatterns = [...CATEGORY_PATTERNS[category]];
       if (config.customPatterns) {
@@ -286,6 +367,66 @@ export class ShieldRule {
 
   async evaluate(request: Request): Promise<RuleResult & { detection?: ShieldDetectionResult }> {
     const detection = await this.detect(request);
+
+    // Check endpoint-specific whitelists
+    if (detection.detected && detection.pattern) {
+      try {
+        const url = new URL(request.url);
+        const pathname = url.pathname;
+
+        // Check if this endpoint has whitelisted patterns
+        for (const [endpoint, whitelistedPatterns] of this.endpointWhitelists.entries()) {
+          let matches = false;
+
+          // Endpoint can be: exact string match, substring match, or regex pattern
+          if (pathname === endpoint) {
+            matches = true; // Exact match
+          } else if (!endpoint.startsWith("/") || !endpoint.endsWith("/")) {
+            // String pattern (not regex) - use substring match
+            matches = pathname.includes(endpoint);
+          } else {
+            // Regex pattern (wrapped in slashes) - validate and test
+            try {
+              const regexPattern = endpoint.slice(1, -1); // Remove leading/trailing slashes
+              matches = new RegExp(regexPattern).test(pathname);
+            } catch (error) {
+              // Invalid regex (should have been caught at construction, but handle gracefully)
+              console.warn(
+                `[Shield] Invalid endpoint regex pattern "${endpoint}" (should have been caught at construction):`,
+                error
+              );
+              continue; // Skip this endpoint
+            }
+          }
+
+          if (matches && whitelistedPatterns.has(detection.pattern)) {
+            // Pattern is whitelisted for this endpoint
+            return {
+              rule: "shield",
+              conclusion: "ALLOW",
+              detection: { ...detection, detected: false },
+            };
+          }
+        }
+      } catch (error) {
+        // Invalid URL or other error - log and continue
+        if (error instanceof Error && !error.message.includes("Invalid URL")) {
+          console.warn(`[Shield] Error checking endpoint whitelist:`, error);
+        }
+        // Continue with normal detection flow
+      }
+    }
+
+    // Debug logging (console.log is intentional for debug mode - not using logger to avoid dependency)
+    if (detection.detected && this.config.logMatches) {
+      // Note: Using console.log instead of logger for debug mode to avoid circular dependencies
+      // This is intentional and only enabled when logMatches is explicitly set to true
+      console.log(`[Shield] Blocked: ${detection.category} in ${detection.location}`, {
+        pattern: detection.pattern,
+        matched: detection.matchedValue,
+        url: request.url,
+      });
+    }
 
     const conclusion: DecisionConclusion = detection.detected ? "DENY" : "ALLOW";
 
@@ -307,18 +448,21 @@ export class ShieldRule {
    * Performs comprehensive attack detection
    */
   private async detect(request: Request): Promise<ShieldDetectionResult> {
-    // Check URL
-    const urlResult = this.scanText(request.url, "url");
+    // Check URL - be more lenient with SQL keywords in URLs (they're often legitimate)
+    const urlResult = this.scanText(request.url, "url", { isUrl: true });
     if (urlResult.detected) {
       return urlResult;
     }
 
-    // Check query parameters
+    // Check query parameters - this is where SQL injection is most likely
     try {
       const url = new URL(request.url);
       const queryString = url.searchParams.toString();
       if (queryString) {
-        const queryResult = this.scanText(decodeURIComponent(queryString), "query");
+        // Query parameters are high-risk for SQL injection
+        const queryResult = this.scanText(decodeURIComponent(queryString), "query", {
+          isQueryParam: true,
+        });
         if (queryResult.detected) {
           return queryResult;
         }
@@ -333,7 +477,7 @@ export class ShieldRule {
         if (this.skipHeaders.has(name.toLowerCase())) {
           continue;
         }
-        const headerResult = this.scanText(value, "headers");
+        const headerResult = this.scanText(value, "headers", { isHeader: true });
         if (headerResult.detected) {
           return headerResult;
         }
@@ -353,16 +497,17 @@ export class ShieldRule {
           }
         }
 
-        // For requests without Content-Length, use streaming with size limit
+        // Use streaming with early termination for memory efficiency
         const clonedRequest = request.clone();
         const reader = clonedRequest.body?.getReader();
         if (!reader) {
           return { detected: false };
         }
 
-        let bodyText = "";
         let totalSize = 0;
         const decoder = new TextDecoder();
+        const chunkSize = 8192; // 8KB chunks for efficient scanning
+        let buffer = "";
 
         try {
           // eslint-disable-next-line no-constant-condition
@@ -379,14 +524,30 @@ export class ShieldRule {
               return { detected: false };
             }
 
-            bodyText += decoder.decode(value, { stream: true });
+            // Decode chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
+
+            // Scan buffer in chunks to enable early termination
+            // Only keep last chunkSize bytes in buffer to prevent memory growth
+            if (buffer.length > chunkSize * 2) {
+              // Scan the first part
+              const toScan = buffer.slice(0, chunkSize);
+              const scanResult = this.scanText(toScan, "body");
+              if (scanResult.detected) {
+                void reader.cancel();
+                return scanResult;
+              }
+              // Keep only the last chunkSize bytes (for patterns that span chunks)
+              buffer = buffer.slice(-chunkSize);
+            }
           }
 
           // Decode any remaining bytes
-          bodyText += decoder.decode();
+          buffer += decoder.decode();
 
-          if (bodyText.length <= this.maxBodySize) {
-            const bodyResult = this.scanText(bodyText, "body");
+          // Scan remaining buffer
+          if (buffer.length > 0) {
+            const bodyResult = this.scanText(buffer, "body");
             if (bodyResult.detected) {
               return bodyResult;
             }
@@ -439,31 +600,160 @@ export class ShieldRule {
 
   /**
    * Scans text for malicious patterns with timeout protection
+   * @param text - Text to scan
+   * @param location - Where the text is from (url, query, headers, body)
+   * @param context - Additional context for context-aware matching
    */
   private scanText(
     text: string,
-    location: ShieldDetectionResult["location"]
+    location: ShieldDetectionResult["location"],
+    context?: { isUrl?: boolean; isQueryParam?: boolean; isHeader?: boolean; isBody?: boolean }
   ): ShieldDetectionResult {
     // Limit text length to prevent DoS
     const maxTextLength = 100000; // 100KB
     const textToScan = text.length > maxTextLength ? text.substring(0, maxTextLength) : text;
 
-    // Check exclusions first
+    // Check exclusions first (static whitelist)
     if (this.config.excludePatterns) {
       for (const pattern of this.config.excludePatterns) {
         try {
           if (this.executeRegexWithTimeout(pattern, textToScan)) {
             return { detected: false };
           }
-        } catch {
-          // If regex times out, continue to next pattern
-          continue;
+        } catch (error) {
+          // Log non-timeout errors for debugging
+          if (error instanceof Error && !error.message.includes("timeout")) {
+            console.warn(`[Shield] Unexpected error in exclusion pattern matching:`, error);
+          }
+          continue; // If regex times out, continue to next pattern
         }
       }
     }
 
-    // Check each category
+    // OWASP CRS-style anomaly scoring: accumulate weak signals
+    if (this.anomalyScoring) {
+      const anomalyScores = new Map<ShieldCategory, number>();
+      const matchedPatterns: Array<{ category: ShieldCategory; pattern: string; matched: string }> =
+        [];
+
+      // Check each category and accumulate scores
+      for (const [category, patterns] of this.patterns) {
+        for (const pattern of patterns) {
+          try {
+            const match = this.executeRegexWithTimeout(pattern, textToScan);
+            if (match) {
+              const matchedText = typeof match === "string" ? match : match[0] || "";
+              const score = this.patternScores.get(category) ?? 3;
+              const currentScore = anomalyScores.get(category) ?? 0;
+              anomalyScores.set(category, currentScore + score);
+              matchedPatterns.push({
+                category,
+                pattern: pattern.source,
+                matched: matchedText.substring(0, 100),
+              });
+            }
+          } catch (error) {
+            // Log non-timeout errors for debugging
+            if (error instanceof Error && !error.message.includes("timeout")) {
+              console.warn(`[Shield] Unexpected error in anomaly scoring pattern matching:`, error);
+            }
+            continue; // If regex times out, continue to next pattern
+          }
+        }
+      }
+
+      // Check if any category exceeds threshold
+      for (const [category, score] of anomalyScores.entries()) {
+        if (score >= this.anomalyThreshold) {
+          const firstMatch = matchedPatterns.find((m) => m.category === category);
+          return {
+            detected: true,
+            category,
+            pattern: firstMatch?.pattern || "multiple",
+            location,
+            matchedValue: firstMatch?.matched || "anomaly_score",
+            anomalyScore: score,
+          };
+        }
+      }
+
+      // If no category exceeded threshold, allow
+      return { detected: false };
+    }
+
+    // Traditional single-pattern matching (default behavior) with context awareness
     for (const [category, patterns] of this.patterns) {
+      // SECURITY: Check ALL SQL injection patterns everywhere (including URLs)
+      // The security risk of missing attacks outweighs the false positive risk from URLs.
+      // Only exception: Skip the weakest single-keyword pattern in URLs to reduce false positives
+      // from legitimate URLs like /api/select or /insert
+      if (category === "sql-injection" && context?.isUrl) {
+        // Check all patterns except the weak single-keyword pattern (using index for reliable comparison)
+        for (let i = 0; i < patterns.length; i++) {
+          // Skip only the weak single-keyword pattern in URLs (using index for reliability)
+          if (i === this.weakKeywordPatternIndex) {
+            continue;
+          }
+
+          const pattern = patterns[i];
+
+          try {
+            const match = this.executeRegexWithTimeout(pattern, textToScan);
+            if (match) {
+              const matchedText = typeof match === "string" ? match : match[0] || "";
+              return {
+                detected: true,
+                category,
+                pattern: pattern.source,
+                location,
+                matchedValue: matchedText.substring(0, 100),
+              };
+            }
+          } catch (error) {
+            // Log non-timeout errors for debugging
+            if (error instanceof Error && !error.message.includes("timeout")) {
+              console.warn(`[Shield] Unexpected error in SQL pattern matching:`, error);
+            }
+            continue;
+          }
+        }
+
+        // All non-weak patterns checked, continue to next category
+        continue;
+      }
+
+      // XSS in headers is less likely (headers are usually not rendered as HTML)
+      if (category === "xss" && context?.isHeader) {
+        // Only match strong XSS patterns in headers
+        const strongPatterns = patterns.filter((p) => {
+          const source = p.source;
+          return source.includes("<script") || source.includes("javascript:");
+        });
+        for (const pattern of strongPatterns) {
+          try {
+            const match = this.executeRegexWithTimeout(pattern, textToScan);
+            if (match) {
+              const matchedText = typeof match === "string" ? match : match[0] || "";
+              return {
+                detected: true,
+                category,
+                pattern: pattern.source,
+                location,
+                matchedValue: matchedText.substring(0, 100),
+              };
+            }
+          } catch (error) {
+            // Log non-timeout errors for debugging
+            if (error instanceof Error && !error.message.includes("timeout")) {
+              console.warn(`[Shield] Unexpected error in XSS pattern matching:`, error);
+            }
+            continue;
+          }
+        }
+        continue; // Skip weak XSS patterns in headers
+      }
+
+      // Standard pattern matching for other cases
       for (const pattern of patterns) {
         try {
           const match = this.executeRegexWithTimeout(pattern, textToScan);
@@ -477,9 +767,12 @@ export class ShieldRule {
               matchedValue: matchedText.substring(0, 100), // Limit length
             };
           }
-        } catch {
-          // If regex times out, continue to next pattern
-          continue;
+        } catch (error) {
+          // Log non-timeout errors for debugging
+          if (error instanceof Error && !error.message.includes("timeout")) {
+            console.warn(`[Shield] Unexpected error in pattern matching:`, error);
+          }
+          continue; // If regex times out, continue to next pattern
         }
       }
     }
@@ -531,6 +824,7 @@ export function shield(
     type: "shield",
     mode: config.mode || "LIVE",
     errorStrategy: config.errorStrategy,
+    scanBody: config.scanBody ?? false, // Default to false to avoid JSON false positives
     ...config,
   };
 }

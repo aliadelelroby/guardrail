@@ -20,6 +20,8 @@ interface CacheEntry {
  */
 export class MemoryStorage implements StorageAdapter {
   private readonly cache: LRUCache<string, CacheEntry>;
+  // Locks for atomic operations to prevent race conditions
+  private readonly operationLocks: Map<string, Promise<void>> = new Map();
 
   /**
    * Creates a new MemoryStorage instance
@@ -66,21 +68,42 @@ export class MemoryStorage implements StorageAdapter {
   }
 
   /**
-   * Increments a numeric value
+   * Increments a numeric value atomically
+   * Uses a lock per key to prevent race conditions
    * @param key - Storage key
    * @param amount - Amount to increment (default: 1)
    * @returns Promise resolving to new value
    */
   async increment(key: string, amount: number = 1): Promise<number> {
-    const current = await this.get(key);
-    const currentValue = current ? parseInt(current, 10) : 0;
-    const newValue = currentValue + amount;
-    await this.set(key, String(newValue));
-    return newValue;
+    // Wait for any existing operation on this key to complete
+    const existingLock = this.operationLocks.get(key);
+    if (existingLock) {
+      await existingLock;
+    }
+
+    // Create a new lock for this operation
+    const lockPromise = (async (): Promise<number> => {
+      try {
+        const current = await this.get(key);
+        const currentValue = current ? parseInt(current, 10) : 0;
+        const newValue = currentValue + amount;
+        await this.set(key, String(newValue));
+        return newValue;
+      } finally {
+        // Remove lock when operation completes
+        this.operationLocks.delete(key);
+      }
+    })();
+
+    this.operationLocks.set(
+      key,
+      lockPromise.then(() => undefined)
+    );
+    return lockPromise;
   }
 
   /**
-   * Decrements a numeric value
+   * Decrements a numeric value atomically
    * @param key - Storage key
    * @param amount - Amount to decrement (default: 1)
    * @returns Promise resolving to new value
@@ -119,7 +142,9 @@ export class MemoryStorage implements StorageAdapter {
    */
   async range(key: string, start: number, end: number): Promise<string[]> {
     const current = await this.get(key);
-    if (!current) {return [];}
+    if (!current) {
+      return [];
+    }
     try {
       const list = safeJsonParse<string[]>(current);
       return list.slice(start, end < 0 ? undefined : end + 1);
@@ -133,7 +158,9 @@ export class MemoryStorage implements StorageAdapter {
    */
   async trim(key: string, start: number, end: number): Promise<void> {
     const current = await this.get(key);
-    if (!current) {return;}
+    if (!current) {
+      return;
+    }
     try {
       const list = safeJsonParse<string[]>(current);
       const trimmed = list.slice(start, end < 0 ? undefined : end + 1);

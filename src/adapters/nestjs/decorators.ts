@@ -110,7 +110,9 @@ export const Email = (
  * Decorator for shield attack protection
  */
 export const Shield = (
-  config?: Omit<ShieldConfig, "type" | "mode"> & { mode?: ShieldConfig["mode"] }
+  config?: Omit<ShieldConfig, "type" | "mode"> & {
+    mode?: ShieldConfig["mode"];
+  }
 ) => {
   return UseGuardrail(shield(config));
 };

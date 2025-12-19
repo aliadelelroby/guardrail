@@ -49,4 +49,11 @@ export class MiddlewareChain {
 
     await next();
   }
+
+  /**
+   * Clears all middlewares from the chain
+   */
+  clear(): void {
+    this.middlewares = [];
+  }
 }

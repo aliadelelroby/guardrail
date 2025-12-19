@@ -127,10 +127,24 @@ export class Guardrail {
       (r) => (r.rule === "slidingWindow" || r.rule === "tokenBucket") && r.remaining !== undefined
     );
 
-    if (rateLimitResult?.remaining !== undefined) {
-      headers["X-RateLimit-Remaining"] = rateLimitResult.remaining.toString();
+    if (rateLimitResult) {
+      if (rateLimitResult.remaining !== undefined) {
+        headers["X-RateLimit-Remaining"] = rateLimitResult.remaining.toString();
+      }
+      if (rateLimitResult.limit !== undefined) {
+        headers["X-RateLimit-Limit"] = rateLimitResult.limit.toString();
+      }
       if (rateLimitResult.reset) {
         headers["X-RateLimit-Reset"] = Math.ceil(rateLimitResult.reset / 1000).toString();
+      }
+      // Add Retry-After header for rate-limited requests
+      if (decision.isDenied() && (decision.reason.isRateLimit() || decision.reason.isQuota())) {
+        if (rateLimitResult.reset) {
+          const retryAfter = Math.ceil((rateLimitResult.reset - Date.now()) / 1000);
+          if (retryAfter > 0) {
+            headers["Retry-After"] = retryAfter.toString();
+          }
+        }
       }
     }
 
@@ -231,17 +245,23 @@ export class Guardrail {
       resetTimeout: finalConfig.resilience?.ip?.timeout ?? 60000,
     });
 
-    this.metrics = this.debug
-      ? new InMemoryMetricsCollector()
-      : new (class {
-          increment() {}
-          gauge() {}
-          histogram() {}
-          getMetrics() {
-            return [];
-          }
-          reset() {}
-        })();
+    // Use Prometheus metrics collector if available, otherwise use in-memory for debug
+    if (finalConfig.metricsCollector) {
+      this.metrics = finalConfig.metricsCollector;
+    } else if (this.debug) {
+      this.metrics = new InMemoryMetricsCollector();
+    } else {
+      // No-op metrics collector for production when metrics are disabled
+      this.metrics = new (class {
+        increment() {}
+        gauge() {}
+        histogram() {}
+        getMetrics() {
+          return [];
+        }
+        reset() {}
+      })();
+    }
 
     this.logger = new ConsoleLogger(this.debug);
     this.events = new GuardrailEventEmitter();
@@ -250,9 +270,35 @@ export class Guardrail {
     // Start cache cleanup interval to prevent memory leaks
     this.startCacheCleanup();
 
+    // Register graceful shutdown handler for production
+    if (typeof process !== "undefined" && typeof process.on === "function") {
+      this.registerShutdownHandlers();
+    }
+
     for (const rule of finalConfig.rules || []) {
       this.addRule(rule);
     }
+  }
+
+  /**
+   * Registers graceful shutdown handlers
+   * @internal
+   */
+  private registerShutdownHandlers(): void {
+    const cleanup = () => {
+      this.logger.info("Guardrail: Performing graceful shutdown cleanup...");
+      this.destroy();
+    };
+
+    // Handle SIGTERM (common in production environments)
+    process.once("SIGTERM", cleanup);
+    // Handle SIGINT (Ctrl+C)
+    process.once("SIGINT", cleanup);
+    // Handle uncaught exceptions (last resort)
+    process.once("uncaughtException", (error) => {
+      this.logger.error("Guardrail: Uncaught exception, performing cleanup:", error);
+      cleanup();
+    });
   }
 
   /**
@@ -279,6 +325,27 @@ export class Guardrail {
       clearInterval(this.cacheCleanupInterval);
       this.cacheCleanupInterval = null;
     }
+  }
+
+  /**
+   * Destroys the Guardrail instance and cleans up all resources
+   * Should be called when the instance is no longer needed to prevent memory leaks
+   */
+  destroy(): void {
+    // Stop cache cleanup interval
+    this.stopCacheCleanup();
+
+    // Clear request cache
+    this.requestCache.clear();
+
+    // Clear custom rule factories
+    this.customRuleFactories.clear();
+
+    // Clear middleware chain
+    this.middleware.clear();
+
+    // Clear event listeners
+    this.events.removeAllListeners();
   }
 
   /**
@@ -499,19 +566,33 @@ export class Guardrail {
         this.metrics.increment("guardrail.ip_lookup.success");
       } catch (error) {
         this.metrics.increment("guardrail.ip_lookup.error");
-        this.logger.error(`IP lookup failed for ${ip}:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isRateLimit = errorMessage.includes("429") || errorMessage.includes("rate limit");
+        const errorDetails = isRateLimit
+          ? `IP geolocation rate limit exceeded for ${ip}. Consider using a premium provider or increasing rate limits.`
+          : `IP geolocation lookup failed for ${ip}: ${errorMessage}`;
+
+        this.logger.error(errorDetails, error);
         await this.events.emit({
           type: "ip-lookup.error",
           timestamp: Date.now(),
           decisionId,
           error: error instanceof Error ? error : new Error(String(error)),
-          context: { ip },
+          context: { ip, isRateLimit },
         });
 
         if (this.errorHandling === "FAIL_CLOSED") {
-          throw new IPGeolocationError(`IP lookup failed for ${ip}`, ip, error as Error);
+          throw new IPGeolocationError(
+            `IP lookup failed for ${ip}. Request denied due to FAIL_CLOSED error handling mode. Original error: ${errorMessage}`,
+            ip,
+            error as Error
+          );
         }
 
+        // In FAIL_OPEN mode, use empty IPInfo but log warning
+        this.logger.warn(
+          `IP lookup failed for ${ip}. Using empty IP info (FAIL_OPEN mode). Some filter rules may not work correctly.`
+        );
         ipInfo = {};
       }
 
@@ -618,13 +699,24 @@ export class Guardrail {
     } catch (error) {
       this.metrics.increment("guardrail.errors.total");
       const duration = Date.now() - startTime;
-      this.logger.error(`Request failed after ${duration}ms:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = `Request protection failed after ${duration}ms: ${errorMessage}`;
+      this.logger.error(errorDetails, error);
 
       if (this.errorHandling === "FAIL_CLOSED") {
-        throw error;
+        const enhancedError =
+          error instanceof Error
+            ? new Error(
+                `Guardrail protection failed (FAIL_CLOSED mode). Request denied. Original error: ${errorMessage}`
+              )
+            : error;
+        throw enhancedError;
       }
 
-      this.logger.error(`Error in protect:`, error);
+      // In FAIL_OPEN mode, allow the request but log warning
+      this.logger.warn(
+        `Guardrail protection failed. Allowing request (FAIL_OPEN mode). Original error: ${errorMessage}`
+      );
       return this.createAllowDecision(
         decisionId,
         {},
@@ -867,7 +959,9 @@ export class Guardrail {
       return result;
     } catch (error) {
       this.metrics.increment(`guardrail.rule.${rule.type}.error`);
-      this.logger.error(`Error evaluating rule ${rule.type}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = `Error evaluating rule ${rule.type}: ${errorMessage}`;
+      this.logger.error(errorDetails, error);
 
       await this.events.emit({
         type: "storage.error",
@@ -880,12 +974,16 @@ export class Guardrail {
 
       if (strategy === "FAIL_CLOSED") {
         throw new RuleEvaluationError(
-          `Rule evaluation failed: ${rule.type}`,
+          `Rule evaluation failed for ${rule.type}. Request denied due to FAIL_CLOSED error handling mode. Original error: ${errorMessage}`,
           rule.type,
           error as Error
         );
       }
 
+      // In FAIL_OPEN mode, allow the request but log warning
+      this.logger.warn(
+        `Rule ${rule.type} evaluation failed. Allowing request (FAIL_OPEN mode). Original error: ${errorMessage}`
+      );
       return {
         rule: rule.type,
         conclusion: "ALLOW",
@@ -948,14 +1046,23 @@ export class Guardrail {
 
   /**
    * Generates cache key for request deduplication
+   * Includes method, pathname, IP, and timestamp to prevent collisions
    */
   private getCacheKey(request: Request, options: ProtectOptions): string | null {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return null;
     }
     const ip = extractIPFromRequest(request);
+    const url = new URL(request.url);
+    const method = request.method;
+    // Include user ID and email from options if available for better uniqueness
     const userId = options.userId || "";
-    return `${request.url}:${ip}:${userId}`;
+    const email = options.email || "";
+    // Include a timestamp bucket (rounded to nearest second) to limit cache duration
+    const timeBucket = Math.floor(Date.now() / 1000);
+
+    // More unique cache key to prevent collisions
+    return `${method}:${url.pathname}:${ip}:${userId}:${email}:${timeBucket}`;
   }
 
   /**

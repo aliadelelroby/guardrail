@@ -58,32 +58,85 @@ function getSafePath(obj: any, path: string): any {
 /**
  * Validates that a function is safe to execute
  * This is a basic check - functions should NEVER come from untrusted sources
+ * Enhanced with more comprehensive pattern matching and obfuscation detection
  */
 function isFunctionSafe(fn: unknown): boolean {
   if (typeof fn !== "function") {
     return false;
   }
+
   // Check if function is a native function (safer than user-defined)
   const fnString = fn.toString();
 
   // Block functions that contain dangerous patterns
+  // Enhanced patterns to catch obfuscated code
   const dangerousPatterns = [
-    /eval\s*\(/,
-    /Function\s*\(/,
-    /new Function/,
-    /require\s*\(/,
-    /import\s*\(/,
-    /process\./,
-    /global\./,
-    /__dirname/,
-    /__filename/,
+    // Direct dangerous calls
+    /eval\s*\(/i,
+    /Function\s*\(/i,
+    /new Function/i,
+    /require\s*\(/i,
+    /import\s*\(/i,
+    /process\./i,
+    /global\./i,
+    /__dirname/i,
+    /__filename/i,
+    // Obfuscated patterns
+    /\beval\b/i,
+    /\bFunction\b.*\(/i,
+    // File system access
+    /fs\./i,
+    /readFile/i,
+    /writeFile/i,
+    /exec/i,
+    /spawn/i,
+    /child_process/i,
+    // Network access
+    /http\./i,
+    /https\./i,
+    /fetch\s*\(/i,
+    /XMLHttpRequest/i,
+    // Shell access
+    /shell/i,
+    /cmd/i,
+    /powershell/i,
+    // Dangerous object access
+    /constructor\.prototype/i,
+    /Object\.prototype/i,
+    // Base64/hex encoded eval attempts (common obfuscation)
+    /atob\s*\(/i,
+    /btoa\s*\(/i,
+    /fromCharCode/i,
+    // Dynamic code execution
+    /setTimeout\s*\(.*['"]/i,
+    /setInterval\s*\(.*['"]/i,
+    // Prototype pollution attempts
+    /__proto__/i,
+    /constructor\[/i,
   ];
 
+  // Check for dangerous patterns
   for (const pattern of dangerousPatterns) {
     if (pattern.test(fnString)) {
-      console.warn("[Guardrail] Blocked potentially unsafe function");
+      console.warn("[Guardrail] Blocked potentially unsafe function pattern:", pattern.toString());
       return false;
     }
+  }
+
+  // Check for suspiciously long or complex functions (potential obfuscation)
+  // Simple functions are typically < 500 characters
+  if (fnString.length > 5000) {
+    console.warn("[Guardrail] Blocked suspiciously long function (potential obfuscation)");
+    return false;
+  }
+
+  // Check for excessive use of escape sequences (common in obfuscated code)
+  const escapeSequenceCount = (fnString.match(/\\x[0-9a-f]{2}|\\u[0-9a-f]{4}/gi) || []).length;
+  if (escapeSequenceCount > 10) {
+    console.warn(
+      "[Guardrail] Blocked function with excessive escape sequences (potential obfuscation)"
+    );
+    return false;
   }
 
   return true;
@@ -125,18 +178,32 @@ export async function resolveValue<T>(
 
     try {
       // Set timeout for function execution to prevent DoS
+      // Reduced timeout from 5s to 2s for better security
+      const timeoutMs = 2000;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Function execution timeout")), 5000);
+        setTimeout(() => reject(new Error("Function execution timeout")), timeoutMs);
       });
 
       // Type assertion: value is a function that takes DecisionContext
       const func = value as (context: DecisionContext) => T | Promise<T>;
+
+      // Track execution start time for monitoring
+      const startTime = Date.now();
       const result = await Promise.race([Promise.resolve(func(context)), timeoutPromise]);
+      const executionTime = Date.now() - startTime;
+
+      // Warn if function takes too long (even if under timeout)
+      if (executionTime > 1000) {
+        console.warn(
+          `[Guardrail] Dynamic value resolver function took ${executionTime}ms (slow execution)`
+        );
+      }
 
       return result instanceof Promise ? await result : (result as T);
     } catch (error) {
+      const timeoutMs = 2000; // Re-declare for error handler
       if (error instanceof Error && error.message.includes("timeout")) {
-        console.warn("[Guardrail] Dynamic value resolver function timed out");
+        console.warn(`[Guardrail] Dynamic value resolver function timed out after ${timeoutMs}ms`);
       } else {
         console.warn("[Guardrail] Dynamic value resolver function failed:", error);
       }

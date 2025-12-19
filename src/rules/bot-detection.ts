@@ -197,7 +197,7 @@ export class BotDetectionRule {
   }
 
   async evaluate(request: Request): Promise<RuleResult & { detection?: BotDetectionResult }> {
-    const detection = this.detectBot(request);
+    const detection = await this.detectBot(request);
 
     let conclusion: DecisionConclusion = "ALLOW";
 
@@ -240,7 +240,7 @@ export class BotDetectionRule {
   /**
    * Performs comprehensive bot detection
    */
-  private detectBot(request: Request): BotDetectionResult {
+  private async detectBot(request: Request): Promise<BotDetectionResult> {
     const userAgent = extractUserAgent(request);
     const signals: string[] = [];
     let confidence = 0;
@@ -316,44 +316,100 @@ export class BotDetectionRule {
     const acceptLanguage = request.headers.get("accept-language");
     const acceptEncoding = request.headers.get("accept-encoding");
     const accept = request.headers.get("accept");
-    const _connection = request.headers.get("connection"); // Reserved for future use
     const secFetchMode = request.headers.get("sec-fetch-mode");
     const secFetchDest = request.headers.get("sec-fetch-dest");
-    void _connection; // Suppress unused warning
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    const secFetchUser = request.headers.get("sec-fetch-user");
+    const referer = request.headers.get("referer");
+    const origin = request.headers.get("origin");
+    const dnt = request.headers.get("dnt");
+    const userAgent = request.headers.get("user-agent");
 
+    // Missing Accept-Language (browsers always send this)
     if (!acceptLanguage) {
       signals.push("Missing Accept-Language header");
-      confidence = Math.max(confidence, 30);
-    }
-
-    if (!acceptEncoding) {
-      signals.push("Missing Accept-Encoding header");
+      confidence = Math.max(confidence, 35);
+    } else if (acceptLanguage.length < 2) {
+      signals.push("Suspicious Accept-Language value");
       confidence = Math.max(confidence, 25);
     }
 
-    if (!accept || accept === "*/*") {
-      signals.push("Generic or missing Accept header");
+    // Missing Accept-Encoding (browsers always send this)
+    if (!acceptEncoding) {
+      signals.push("Missing Accept-Encoding header");
+      confidence = Math.max(confidence, 40);
+    } else if (!acceptEncoding.includes("gzip") && !acceptEncoding.includes("deflate")) {
+      signals.push("Unusual Accept-Encoding value");
       confidence = Math.max(confidence, 20);
     }
 
-    // Modern browsers send Sec-Fetch-* headers
-    if (!secFetchMode && !secFetchDest) {
-      signals.push("Missing Sec-Fetch headers (older client or bot)");
+    // Generic or missing Accept header
+    if (!accept || accept === "*/*") {
+      signals.push("Generic or missing Accept header");
+      confidence = Math.max(confidence, 30);
+    } else if (!accept.includes("text/html") && !accept.includes("application/json")) {
+      // Unusual Accept header for web requests
+      signals.push("Unusual Accept header pattern");
       confidence = Math.max(confidence, 15);
     }
 
-    // Check for header ordering anomalies (bots often have unusual ordering)
-    const headerCount = [...request.headers.keys()].length;
-    if (headerCount < 3) {
-      signals.push("Unusually few headers");
-      confidence = Math.max(confidence, 40);
+    // Modern browsers send Sec-Fetch-* headers (Chrome 76+, Firefox 90+)
+    const hasSecFetchHeaders = secFetchMode || secFetchDest || secFetchSite || secFetchUser;
+    if (
+      !hasSecFetchHeaders &&
+      userAgent &&
+      !userAgent.includes("curl") &&
+      !userAgent.includes("wget")
+    ) {
+      // Missing Sec-Fetch headers but claims to be a modern browser
+      signals.push("Missing Sec-Fetch headers (possible bot spoofing browser)");
+      confidence = Math.max(confidence, 50);
     }
 
-    // Check for suspicious patterns
+    // Check for header consistency issues
+    if (secFetchMode === "navigate" && !referer && !origin) {
+      signals.push("Navigate request without Referer/Origin");
+      confidence = Math.max(confidence, 30);
+    }
+
+    // Check for automation tool headers
+    const xRequestedWith = request.headers.get("x-requested-with");
+    if (xRequestedWith && !xRequestedWith.includes("XMLHttpRequest")) {
+      signals.push(`Suspicious X-Requested-With: ${xRequestedWith}`);
+      confidence = Math.max(confidence, 25);
+    }
+
+    // Check for proxy/VPN indicators
     const via = request.headers.get("via");
-    if (via) {
-      signals.push(`Via header present: ${via}`);
+    const xForwardedFor = request.headers.get("x-forwarded-for");
+    if (via && !xForwardedFor) {
+      signals.push("Via header without X-Forwarded-For (unusual proxy pattern)");
+      confidence = Math.max(confidence, 15);
+    }
+
+    // Check header count (legitimate browsers send many headers)
+    const headerCount = [...request.headers.keys()].length;
+    if (headerCount < 5) {
+      signals.push("Unusually few headers (likely bot)");
+      confidence = Math.max(confidence, 45);
+    } else if (headerCount > 30) {
+      signals.push("Unusually many headers (possible header injection)");
       confidence = Math.max(confidence, 20);
+    }
+
+    // Check for header value anomalies
+    const contentType = request.headers.get("content-type");
+    if (contentType && contentType.includes(";") && !contentType.includes("charset")) {
+      // Suspicious Content-Type format
+      signals.push("Suspicious Content-Type format");
+      confidence = Math.max(confidence, 10);
+    }
+
+    // Check for missing DNT header (most browsers send this)
+    // Note: This is a weak signal as DNT is optional
+    if (userAgent && userAgent.includes("Chrome") && !dnt && !userAgent.includes("Headless")) {
+      // Chrome usually sends DNT, but this is weak
+      confidence = Math.max(confidence, 5);
     }
 
     return { signals, confidence };

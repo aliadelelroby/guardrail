@@ -238,6 +238,10 @@ export class AtomicRedisStorage implements StorageAdapter {
   private readonly keyPrefix: string;
   private scriptsLoaded = false;
   private scriptShas: Record<string, string> = {};
+  private clockOffset: number = 0; // Offset between local time and Redis server time
+  private lastClockSync: number = 0;
+  private readonly clockSyncInterval = 60000; // Sync every minute
+  private syncFailureCount: number = 0; // Track consecutive sync failures for exponential backoff
 
   constructor(options: AtomicRedisStorageOptions = {}) {
     if (options.redis instanceof Redis) {
@@ -248,13 +252,93 @@ export class AtomicRedisStorage implements StorageAdapter {
     // Validate and sanitize key prefix
     const prefix = options.keyPrefix || "guardrail:";
     this.keyPrefix = validateKeyPrefix(prefix);
+
+    // Perform initial clock sync
+    void this.syncClock();
+  }
+
+  /**
+   * Synchronizes local clock with Redis server time to handle clock skew
+   *
+   * NOTE: For production deployments, ensure all servers (application and Redis) are synchronized
+   * using NTP (Network Time Protocol) to minimize clock drift. This sync is a fallback mechanism.
+   */
+  private async syncClock(): Promise<void> {
+    // Exponential backoff: skip sync if we've had recent failures
+    if (this.syncFailureCount > 0) {
+      const backoffMs = Math.min(1000 * Math.pow(2, this.syncFailureCount - 1), 60000); // Max 60s
+      if (Date.now() - this.lastClockSync < backoffMs) {
+        return; // Skip this sync attempt
+      }
+    }
+
+    try {
+      const localBefore = Date.now();
+      const redisTime = await this.client.time();
+      const localAfter = Date.now();
+
+      // Redis TIME returns [seconds, microseconds]
+      const redisMs = redisTime[0] * 1000 + Math.floor(redisTime[1] / 1000);
+      const localMid = (localBefore + localAfter) / 2;
+
+      this.clockOffset = redisMs - localMid;
+      this.lastClockSync = Date.now();
+      this.syncFailureCount = 0; // Reset failure count on success
+
+      // Warn if clock skew is significant (>1 second)
+      if (Math.abs(this.clockOffset) > 1000) {
+        console.warn(
+          `[Guardrail] Clock skew detected: ${this.clockOffset}ms difference between local and Redis server time. This may affect rate limiting accuracy. Consider synchronizing servers with NTP.`
+        );
+      }
+    } catch (error) {
+      // If TIME command fails, use local time (fallback)
+      this.syncFailureCount += 1;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Only warn on first failure or every 10th failure to avoid log spam
+      if (this.syncFailureCount === 1 || this.syncFailureCount % 10 === 0) {
+        console.warn(
+          `[Guardrail] Failed to sync with Redis server time (attempt ${this.syncFailureCount}): ${errorMessage}. Using local time. Ensure Redis is accessible and servers are NTP-synchronized.`
+        );
+      }
+
+      // Reset offset on failure (use local time)
+      this.clockOffset = 0;
+    }
+  }
+
+  /**
+   * Gets current time adjusted for clock skew (uses Redis time when available)
+   */
+  private async getAdjustedTime(): Promise<number> {
+    // Re-sync clock if it's been more than 1 minute
+    if (Date.now() - this.lastClockSync > this.clockSyncInterval) {
+      await this.syncClock();
+    }
+
+    // Use Redis time if offset is significant, otherwise use local time
+    if (Math.abs(this.clockOffset) > 100) {
+      try {
+        const redisTime = await this.client.time();
+        const redisMs = redisTime[0] * 1000 + Math.floor(redisTime[1] / 1000);
+        return redisMs;
+      } catch {
+        // Fallback to local time with offset
+        return Date.now() + this.clockOffset;
+      }
+    }
+
+    return Date.now();
   }
 
   /**
    * Loads Lua scripts into Redis
    */
   private async ensureScriptsLoaded(): Promise<void> {
-    if (this.scriptsLoaded) {return;}
+    if (this.scriptsLoaded) {
+      return;
+    }
 
     for (const [name, script] of Object.entries(LUA_SCRIPTS)) {
       const sha = (await this.client.script("LOAD", script)) as string;
@@ -304,7 +388,7 @@ export class AtomicRedisStorage implements StorageAdapter {
     // Sanitize key component to prevent injection
     const sanitizedKey = sanitizeKeyComponent(key, 200);
     const fullKey = this.keyPrefix + sanitizedKey;
-    const now = Date.now();
+    const now = await this.getAdjustedTime();
 
     const result = (await this.executeScript(
       "tokenBucket",
@@ -326,7 +410,7 @@ export class AtomicRedisStorage implements StorageAdapter {
     // Sanitize key component to prevent injection
     const sanitizedKey = sanitizeKeyComponent(key, 200);
     const fullKey = this.keyPrefix + sanitizedKey;
-    const now = Date.now();
+    const now = await this.getAdjustedTime();
 
     const result = (await this.executeScript("slidingWindow", [fullKey], [max, windowMs, now])) as [
       number,
@@ -348,7 +432,7 @@ export class AtomicRedisStorage implements StorageAdapter {
     // Sanitize key component to prevent injection
     const sanitizedKey = sanitizeKeyComponent(key, 200);
     const fullKey = this.keyPrefix + sanitizedKey;
-    const now = Date.now();
+    const now = await this.getAdjustedTime();
 
     const result = (await this.executeScript("fixedWindow", [fullKey], [max, windowMs, now])) as [
       number,

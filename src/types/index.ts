@@ -241,6 +241,8 @@ export interface RuleResult {
   reason?: DenialReason;
   /** Remaining quota/limit if applicable */
   remaining?: number;
+  /** Maximum limit/quota if applicable */
+  limit?: number;
   /** Reset timestamp in milliseconds if applicable */
   reset?: number;
 }
@@ -248,7 +250,7 @@ export interface RuleResult {
 /**
  * Metadata provided for dynamic limit resolution (e.g., subscription info)
  */
-export type GuardrailMetadata = Record<string, unknown>
+export type GuardrailMetadata = Record<string, unknown>;
 
 /**
  * Options for protect method evaluation
@@ -324,6 +326,8 @@ export interface GuardrailConfig {
   whitelist?: WhitelistConfig;
   /** Blacklist configuration */
   blacklist?: BlacklistConfig;
+  /** Custom metrics collector (for Prometheus, etc.) */
+  metricsCollector?: MetricsCollector;
 }
 
 /**
@@ -377,6 +381,11 @@ export type GuardrailRuleType =
   | "shield"
   | "filter"
   | "custom";
+
+/**
+ * Metrics collector interface (imported from utils/metrics)
+ */
+export type MetricsCollector = import("../utils/metrics").MetricsCollector;
 
 /**
  * Storage adapter interface for rate limiting data persistence
@@ -496,6 +505,24 @@ export type EmailBlockReason =
  */
 export interface ShieldConfig extends Rule {
   type: "shield";
+  /** Scan request body for attacks (default: false to avoid JSON false positives) */
+  scanBody?: boolean;
+  /** Scan request headers for attacks (default: true) */
+  scanHeaders?: boolean;
+  /** Detection categories to enable */
+  categories?: Array<
+    | "sql-injection"
+    | "xss"
+    | "command-injection"
+    | "path-traversal"
+    | "ldap-injection"
+    | "xxe"
+    | "header-injection"
+    | "log-injection"
+    | "anomaly"
+  >;
+  /** Log matched patterns for debugging */
+  logMatches?: boolean;
 }
 
 /**

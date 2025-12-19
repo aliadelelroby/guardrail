@@ -70,44 +70,78 @@ export class TokenBucketRule {
         conclusion: result.allowed ? "ALLOW" : "DENY",
         reason: result.allowed ? undefined : "QUOTA",
         remaining: result.remaining,
+        limit: capacity,
         reset: result.reset,
       };
       return this.config.mode === "DRY_RUN" ? { ...ruleResult, conclusion: "ALLOW" } : ruleResult;
     }
 
     // 2. Fallback to standard implementation for generic storage
-    const now = Date.now();
+    // Use optimistic locking to prevent race conditions
+    const maxRetries = 5;
+    let retries = 0;
+    let state: TokenBucketState = { tokens: capacity, lastRefill: Date.now() };
+    let now = Date.now();
+    let conclusion: DecisionConclusion = "DENY";
 
-    const stateStr = await this.storage.get(key);
-    let state: TokenBucketState;
+    while (retries < maxRetries) {
+      const stateStr = await this.storage.get(key);
 
-    if (stateStr) {
-      try {
-        state = safeJsonParse<TokenBucketState>(stateStr);
-      } catch {
-        state = { tokens: capacity, lastRefill: now };
+      if (stateStr) {
+        try {
+          state = safeJsonParse<TokenBucketState>(stateStr);
+        } catch {
+          state = { tokens: capacity, lastRefill: now };
+        }
+      } else {
+        state = {
+          tokens: capacity,
+          lastRefill: now,
+        };
       }
-    } else {
-      state = {
-        tokens: capacity,
-        lastRefill: now,
-      };
-    }
 
-    const timePassed = now - state.lastRefill;
-    const refills = Math.floor(timePassed / intervalMs);
-    const tokensToAdd = refills * refillRate;
+      // Re-read timestamp to ensure consistency
+      now = Date.now();
 
-    if (tokensToAdd > 0) {
-      state.tokens = Math.min(capacity, state.tokens + tokensToAdd);
-      state.lastRefill = now - (timePassed % intervalMs);
-    }
+      const timePassed = now - state.lastRefill;
+      const refills = Math.floor(timePassed / intervalMs);
+      const tokensToAdd = refills * refillRate;
 
-    const conclusion: DecisionConclusion = state.tokens >= requested ? "ALLOW" : "DENY";
+      if (tokensToAdd > 0) {
+        state.tokens = Math.min(capacity, state.tokens + tokensToAdd);
+        state.lastRefill = now - (timePassed % intervalMs);
+      }
 
-    if (conclusion === "ALLOW") {
-      state.tokens -= requested;
-      await this.storage.set(key, JSON.stringify(state), intervalMs * 2);
+      conclusion = state.tokens >= requested ? "ALLOW" : "DENY";
+
+      if (conclusion === "ALLOW") {
+        state.tokens -= requested;
+        const newStateStr = JSON.stringify(state);
+
+        // Optimistic update: verify state hasn't changed
+        const currentStateStr = await this.storage.get(key);
+        if (currentStateStr === stateStr) {
+          // State hasn't changed, safe to update
+          await this.storage.set(key, newStateStr, intervalMs * 2);
+          break; // Success, exit retry loop
+        } else {
+          // State changed, retry
+          retries++;
+          if (retries >= maxRetries) {
+            // After max retries, use current state but don't update
+            // This is a fallback to prevent infinite loops
+            const currentState = currentStateStr
+              ? safeJsonParse<TokenBucketState>(currentStateStr)
+              : { tokens: capacity, lastRefill: now };
+            state = currentState;
+            break;
+          }
+          continue;
+        }
+      } else {
+        // DENY - no state update needed, safe to exit
+        break;
+      }
     }
 
     const remaining = Math.max(0, state.tokens);
@@ -118,6 +152,7 @@ export class TokenBucketRule {
       conclusion,
       reason: conclusion === "DENY" ? "QUOTA" : undefined,
       remaining,
+      limit: capacity,
       reset,
     };
 

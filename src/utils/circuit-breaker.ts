@@ -22,6 +22,8 @@ export interface CircuitBreakerConfig {
   successThreshold: number;
   /** Time window in milliseconds for tracking failures */
   timeoutWindow: number;
+  /** Operation timeout in milliseconds (default: no timeout) */
+  operationTimeout?: number;
 }
 
 /**
@@ -32,6 +34,7 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
   resetTimeout: 60000,
   successThreshold: 2,
   timeoutWindow: 60000,
+  operationTimeout: undefined, // No timeout by default
 };
 
 /**
@@ -58,6 +61,7 @@ export class CircuitBreaker {
    * @param serviceName - Service name for error messages
    * @returns Promise resolving to function result
    * @throws {CircuitBreakerError} If circuit is open
+   * @throws {Error} If operation times out (if operationTimeout is configured)
    */
   async execute<T>(fn: () => Promise<T>, serviceName: string): Promise<T> {
     if (this.state === "OPEN") {
@@ -70,7 +74,27 @@ export class CircuitBreaker {
     }
 
     try {
-      const result = await fn();
+      let result: T;
+
+      // Apply timeout if configured
+      if (this.config.operationTimeout && this.config.operationTimeout > 0) {
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `Circuit breaker operation timeout after ${this.config.operationTimeout}ms for ${serviceName}`
+                )
+              ),
+            this.config.operationTimeout!
+          );
+        });
+
+        result = await Promise.race([Promise.resolve(fn()), timeoutPromise]);
+      } else {
+        result = await fn();
+      }
+
       this.onSuccess();
       return result;
     } catch (error) {
@@ -104,12 +128,12 @@ export class CircuitBreaker {
     const now = Date.now();
     this.cleanOldFailures();
     this.failures.push(now);
-    
+
     // Optimization: Keep only necessary history
     if (this.failures.length > this.config.failureThreshold) {
       this.failures = this.failures.slice(-this.config.failureThreshold);
     }
-    
+
     this.lastFailureTime = now;
 
     if (this.state === "HALF_OPEN") {
