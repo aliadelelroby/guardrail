@@ -55,6 +55,13 @@ export interface GuardrailModuleOptions extends GuardrailConfig {
    * Default: false
    */
   autoProtect?: boolean;
+
+  /**
+   * Automatically allow localhost/private IPs in development mode.
+   * When true, automatically whitelists 127.0.0.1, ::1, and localhost.
+   * Default: true if NODE_ENV !== "production", false otherwise
+   */
+  allowPrivateIPs?: boolean;
 }
 
 /**
@@ -73,8 +80,21 @@ export class GuardrailModule {
       useInterceptor = false,
       userExtractor: _userExtractor,
       emailExtractor: _emailExtractor,
+      allowPrivateIPs = process.env.NODE_ENV !== "production",
       ...guardrailConfig
     } = options;
+
+    // Auto-whitelist localhost/private IPs in development mode
+    if (allowPrivateIPs) {
+      const localhostIPs = ["127.0.0.1", "::1", "localhost"];
+      const existingWhitelist = guardrailConfig.whitelist?.ips || [];
+      const mergedWhitelist = [...new Set([...localhostIPs, ...existingWhitelist])];
+
+      guardrailConfig.whitelist = {
+        ...guardrailConfig.whitelist,
+        ips: mergedWhitelist,
+      };
+    }
 
     const providers: Provider[] = [
       {
@@ -130,7 +150,25 @@ export class GuardrailModule {
       provide: Guardrail,
       useFactory: async (...args: unknown[]): Promise<Guardrail> => {
         const config = await options.useFactory(...args);
-        const { useGuard: _useGuard, useInterceptor: _useInterceptor, ...guardrailConfig } = config;
+        const {
+          useGuard: _useGuard,
+          useInterceptor: _useInterceptor,
+          allowPrivateIPs = process.env.NODE_ENV !== "production",
+          ...guardrailConfig
+        } = config;
+
+        // Auto-whitelist localhost/private IPs in development mode
+        if (allowPrivateIPs) {
+          const localhostIPs = ["127.0.0.1", "::1", "localhost"];
+          const existingWhitelist = guardrailConfig.whitelist?.ips || [];
+          const mergedWhitelist = [...new Set([...localhostIPs, ...existingWhitelist])];
+
+          guardrailConfig.whitelist = {
+            ...guardrailConfig.whitelist,
+            ips: mergedWhitelist,
+          };
+        }
+
         return new Guardrail(guardrailConfig);
       },
       inject: options.inject || [],

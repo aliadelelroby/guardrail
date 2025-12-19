@@ -161,13 +161,72 @@
 </section>
 
 <section class="docs-section">
+  <h2>Working with Localhost/Private IPs</h2>
+  <p>
+    Private IP addresses (like <code>127.0.0.1</code>, <code>::1</code>, or <code>localhost</code>)
+    cannot be geolocated to a country. When using country-based filters, you need to handle
+    localhost explicitly.
+  </p>
+
+  <h3>Automatic Development Mode Handling</h3>
+  <p>
+    In development mode (<code>NODE_ENV !== "production"</code>), Guardrail automatically whitelists
+    localhost IPs, so your filter rules will work without modification. This means you can test
+    locally without additional configuration.
+  </p>
+
+  <h3>Explicit Localhost Allowance</h3>
+  <p>
+    If you need to allow localhost in production or want to be explicit, include localhost IPs in
+    your filter expressions:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">allow</span>: [
+    <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>, <span class="cmt">// Allow localhost</span>
+    <span class="str">'ip.src.country eq "US"'</span>, <span class="cmt">// Allow US IPs</span>
+  ],
+})</code></pre>
+  </div>
+
+  <h3>Understanding Private IP Behavior</h3>
+  <p>When a private IP is used:</p>
+  <ul>
+    <li><code>ip.src.country</code> will be <code>undefined</code> (cannot be geolocated)</li>
+    <li>
+      Country-based expressions like <code>ip.src.country eq "US"</code> will evaluate to
+      <code>false</code> for private IPs
+    </li>
+    <li>
+      You must explicitly allow the IP address itself (e.g., <code>ip.src == "127.0.0.1"</code>) if
+      you want to permit localhost
+    </li>
+  </ul>
+
+  <div class="docs-callout">
+    <div class="docs-callout-title">💡 Best Practice</div>
+    <p>
+      In development, rely on automatic localhost whitelisting. In production, explicitly allow
+      localhost only if you have a legitimate use case (e.g., health checks from internal services).
+      For most production APIs, you should block private IPs to prevent SSRF attacks.
+    </p>
+  </div>
+</section>
+
+<section class="docs-section">
   <h2>Available Properties</h2>
   <p>You can access the following properties in expressions:</p>
   <ul>
-    <li><code>ip.src.country</code> — Country code</li>
+    <li><code>ip.src.country</code> — Country code (undefined for private IPs)</li>
     <li><code>ip.src.vpn</code> — VPN detection</li>
     <li><code>ip.src.proxy</code> — Proxy detection</li>
     <li><code>ip.src.hosting</code> — Hosting provider detection</li>
+    <li><code>ip.src.is_private</code> — Whether the IP is private/localhost</li>
     <li><code>request.path</code> — Request path</li>
     <li><code>request.method</code> — HTTP method</li>
   </ul>

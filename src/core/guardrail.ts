@@ -27,6 +27,7 @@ import { EmailValidationRule } from "../rules/email-validation";
 import { ShieldRule } from "../rules/shield";
 import { FilterRule } from "../rules/filter";
 import { extractIPFromRequest } from "../utils/fingerprint";
+import { isLocalhostOrPrivateIP } from "../utils/ip-validator";
 import { explainDecision } from "../utils/decision-explainer";
 import { logDecision } from "../utils/debug-visualizer";
 import {
@@ -421,6 +422,15 @@ export class Guardrail {
     email?: string,
     country?: string
   ): { allowed: boolean; reason?: string } {
+    // Check if IP is private/localhost and allow in development mode as fallback
+    // (Note: GuardrailModule should already whitelist these, but this provides a safety net)
+    if (isLocalhostOrPrivateIP(ip) && process.env.NODE_ENV !== "production") {
+      // Only allow if not explicitly blacklisted
+      if (!this.blacklist?.ips?.includes(ip)) {
+        return { allowed: true };
+      }
+    }
+
     if (this.whitelist) {
       if (this.whitelist.ips?.includes(ip)) {
         return { allowed: true };

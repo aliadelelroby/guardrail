@@ -5,6 +5,7 @@
 import type { FilterConfig, RuleResult, DecisionConclusion, IPInfo } from "../types/index";
 import { extractIPFromRequest, extractUserAgent } from "../utils/fingerprint";
 import { evaluateExpression } from "../utils/expression-evaluator";
+import { isLocalhostOrPrivateIP } from "../utils/ip-validator";
 
 export class FilterRule {
   constructor(private config: FilterConfig) {}
@@ -21,19 +22,25 @@ export class FilterRule {
         )
       : characteristics;
 
-    const context = this.buildContext(request, ipInfo, relevantCharacteristics);
+    const ip = extractIPFromRequest(request);
+    const isPrivate = isLocalhostOrPrivateIP(ip);
+    const context = this.buildContext(request, ipInfo, relevantCharacteristics, isPrivate);
 
     let conclusion: DecisionConclusion = "ALLOW";
 
     if (this.config.deny && this.config.deny.length > 0) {
-      const shouldDeny = this.config.deny.some((expr) => this.evaluateExpression(expr, context));
+      const shouldDeny = this.config.deny.some((expr) =>
+        this.evaluateExpression(expr, context, isPrivate, ip)
+      );
       if (shouldDeny) {
         conclusion = "DENY";
       }
     }
 
     if (this.config.allow && this.config.allow.length > 0 && conclusion === "ALLOW") {
-      const shouldAllow = this.config.allow.some((expr) => this.evaluateExpression(expr, context));
+      const shouldAllow = this.config.allow.some((expr) =>
+        this.evaluateExpression(expr, context, isPrivate, ip)
+      );
       if (!shouldAllow) {
         conclusion = "DENY";
       }
@@ -55,7 +62,8 @@ export class FilterRule {
   private buildContext(
     request: Request,
     ipInfo: IPInfo,
-    characteristics: Record<string, string | number | undefined>
+    characteristics: Record<string, string | number | undefined>,
+    isPrivate: boolean
   ): Record<string, unknown> {
     const ip = extractIPFromRequest(request);
     const userAgent = extractUserAgent(request);
@@ -72,6 +80,7 @@ export class FilterRule {
       ip_src_relay: ipInfo.isRelay,
       ip_src_tor: ipInfo.isTor,
       ip_src_asnum_type: ipInfo.asnType,
+      ip_src_is_private: isPrivate,
       http_request_headers_user_agent: userAgent,
     };
 
@@ -88,10 +97,36 @@ export class FilterRule {
    * Evaluates a filter expression safely
    * @param expression - Expression string
    * @param context - Evaluation context
+   * @param isPrivate - Whether the IP is private/localhost
+   * @param ip - The IP address
    * @returns Evaluation result
    */
-  private evaluateExpression(expression: string, context: Record<string, unknown>): boolean {
+  private evaluateExpression(
+    expression: string,
+    context: Record<string, unknown>,
+    isPrivate: boolean,
+    ip: string
+  ): boolean {
     try {
+      // Handle private IPs with country checks: if country is undefined and IP is private,
+      // check if the expression explicitly allows the IP address itself
+      if (isPrivate && context.ip_src_country === undefined) {
+        // If expression checks for country and IP is private, check if IP is explicitly allowed
+        if (expression.includes("ip.src.country")) {
+          // Check if the expression also allows the IP directly (e.g., 'ip.src == "127.0.0.1"')
+          const ipCheckPattern = new RegExp(
+            `ip\\.src\\s*==\\s*["']?${ip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']?`,
+            "i"
+          );
+          if (ipCheckPattern.test(expression)) {
+            return true; // IP is explicitly allowed
+          }
+          // If it's an allow expression requiring country, deny (country is undefined)
+          // If it's a deny expression, allow (can't deny based on undefined country)
+          return false;
+        }
+      }
+
       let normalized = expression
         .replace(/ip\.src\.country/g, "ip_src_country")
         .replace(/ip\.src\.region/g, "ip_src_region")
@@ -103,6 +138,7 @@ export class FilterRule {
         .replace(/ip\.src\.relay/g, "ip_src_relay")
         .replace(/ip\.src\.tor/g, "ip_src_tor")
         .replace(/ip\.src\.asnum\.type/g, "ip_src_asnum_type")
+        .replace(/ip\.src\.is_private/g, "ip_src_is_private")
         .replace(/ip\.src/g, "ip_src")
         .replace(/http\.request\.headers\["user-agent"\]/g, "http_request_headers_user_agent");
 

@@ -52,6 +52,37 @@
 </section>
 
 <section class="docs-section">
+  <h2>Development Mode & Localhost</h2>
+  <p>
+    When developing locally, Guardrail automatically handles localhost requests. In development mode
+    (<code>NODE_ENV !== "production"</code>), requests from <code>127.0.0.1</code>,
+    <code>::1</code>, or <code>localhost</code> are automatically allowed, so you can test your APIs
+    without additional configuration.
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Works automatically in development - no localhost configuration needed!</span>
+<span class="kw">const</span> gr = <span class="fn">guardrail</span>({
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">allow</span>: [<span class="str">'ip.src.country eq "US"'</span>], <span class="cmt">// Localhost works automatically</span>
+    }),
+  ],
+});</code></pre>
+  </div>
+
+  <p>
+    For more details on localhost handling and production configuration, see the
+    <a href="docs.html#adapter-nestjs" data-route="adapter-nestjs">Nest.js adapter documentation</a>
+    or <a href="docs.html#rule-filter" data-route="rule-filter">filter rules documentation</a>.
+  </p>
+</section>
+
+<section class="docs-section">
   <h2>Next Steps</h2>
   <ul>
     <li>

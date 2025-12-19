@@ -97,6 +97,97 @@
 </section>
 
 <section class="docs-section">
+  <h2>Development Mode & Localhost</h2>
+  <p>
+    When developing locally, Guardrail automatically handles localhost and private IP addresses. In
+    development mode (<code>NODE_ENV !== "production"</code>), localhost IPs are automatically
+    whitelisted, so you can test your APIs without additional configuration.
+  </p>
+
+  <h3>Automatic Behavior</h3>
+  <p>
+    By default, Guardrail automatically allows requests from localhost when running in development
+    mode:
+  </p>
+  <ul>
+    <li><code>127.0.0.1</code> (IPv4 loopback)</li>
+    <li><code>::1</code> (IPv6 loopback)</li>
+    <li><code>localhost</code> (hostname)</li>
+  </ul>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Works automatically in development (NODE_ENV !== "production")</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">autoProtect</span>: <span class="kw">true</span>,
+  <span class="prop">useGuard</span>: <span class="kw">true</span>,
+  <span class="cmt">// allowPrivateIPs defaults to true in development</span>
+});</code></pre>
+  </div>
+
+  <h3>Explicit Configuration</h3>
+  <p>You can explicitly control this behavior with the <code>allowPrivateIPs</code> option:</p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="cmt">// Explicitly allow private IPs (even in production)</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">allowPrivateIPs</span>: <span class="kw">true</span>,
+  <span class="prop">rules</span>: [
+    <span class="fn">filter</span>({
+      <span class="prop">allow</span>: [
+        <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>,
+        <span class="str">'ip.src.country eq "US"'</span>,
+      ],
+    }),
+  ],
+});
+
+<span class="cmt">// Explicitly disable (block localhost even in development)</span>
+GuardrailModule.<span class="fn">forRoot</span>({
+  <span class="prop">allowPrivateIPs</span>: <span class="kw">false</span>,
+});</code></pre>
+  </div>
+
+  <div class="docs-callout">
+    <div class="docs-callout-title">⚠️ Production Security</div>
+    <p>
+      In production (<code>NODE_ENV === "production"</code>), private IPs are <strong>not</strong>
+      automatically allowed. This prevents SSRF attacks and ensures only legitimate public IPs can
+      access your APIs. If you need to allow private IPs in production, you must explicitly set
+      <code>allowPrivateIPs: true</code> and configure your filter rules accordingly.
+    </p>
+  </div>
+
+  <h3>Working with Country-Based Filters</h3>
+  <p>
+    When using country-based filters (e.g., <code>ip.src.country eq "US"</code>), localhost requests
+    will work automatically in development mode because they're whitelisted before filter
+    evaluation. In production, you'll need to explicitly allow localhost in your filter rules if
+    needed:
+  </p>
+
+  <div class="docs-code">
+    <div class="docs-code-header">
+      <span class="docs-code-lang">typescript</span>
+      <button class="docs-code-copy">Copy</button>
+    </div>
+    <pre><code><span class="fn">filter</span>({
+  <span class="prop">allow</span>: [
+    <span class="str">'ip.src == "127.0.0.1" or ip.src == "::1"'</span>, <span class="cmt">// Allow localhost</span>
+    <span class="str">'ip.src.country eq "US"'</span>, <span class="cmt">// Allow US IPs</span>
+  ],
+})</code></pre>
+  </div>
+</section>
+
+<section class="docs-section">
   <h2>Related</h2>
   <ul>
     <li>

@@ -8,12 +8,18 @@
  */
 function isValidIPv4(ip: string): boolean {
   const parts = ip.split(".");
-  if (parts.length !== 4) {return false;}
+  if (parts.length !== 4) {
+    return false;
+  }
 
   for (const part of parts) {
     const num = parseInt(part, 10);
-    if (isNaN(num) || num < 0 || num > 255) {return false;}
-    if (part !== num.toString()) {return false;} // Prevent leading zeros
+    if (isNaN(num) || num < 0 || num > 255) {
+      return false;
+    }
+    if (part !== num.toString()) {
+      return false;
+    } // Prevent leading zeros
   }
 
   return true;
@@ -28,19 +34,29 @@ function isValidIPv6(ip: string): boolean {
   if (ip.includes("::")) {
     // Compressed format
     const parts = ip.split("::");
-    if (parts.length > 2) {return false;}
+    if (parts.length > 2) {
+      return false;
+    }
     const allParts = parts.join(":").split(":");
-    if (allParts.length > 8) {return false;}
+    if (allParts.length > 8) {
+      return false;
+    }
     for (const part of allParts) {
-      if (part && !/^[0-9a-fA-F]{1,4}$/.test(part)) {return false;}
+      if (part && !/^[0-9a-fA-F]{1,4}$/.test(part)) {
+        return false;
+      }
     }
     return true;
   } else {
     // Full format
     const parts = ip.split(":");
-    if (parts.length !== 8) {return false;}
+    if (parts.length !== 8) {
+      return false;
+    }
     for (const part of parts) {
-      if (!/^[0-9a-fA-F]{1,4}$/.test(part)) {return false;}
+      if (!/^[0-9a-fA-F]{1,4}$/.test(part)) {
+        return false;
+      }
     }
     return true;
   }
@@ -49,35 +65,53 @@ function isValidIPv6(ip: string): boolean {
 /**
  * Checks if an IP address is in a private/internal range
  */
-function isPrivateIP(ip: string): boolean {
-  if (!isValidIPv4(ip)) {return false;}
+export function isPrivateIP(ip: string): boolean {
+  if (!isValidIPv4(ip)) {
+    return false;
+  }
 
   const parts = ip.split(".").map(Number);
   const [a, b] = parts;
 
   // 10.0.0.0/8
-  if (a === 10) {return true;}
+  if (a === 10) {
+    return true;
+  }
 
   // 172.16.0.0/12
-  if (a === 172 && b >= 16 && b <= 31) {return true;}
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
 
   // 192.168.0.0/16
-  if (a === 192 && b === 168) {return true;}
+  if (a === 192 && b === 168) {
+    return true;
+  }
 
   // 127.0.0.0/8 (loopback)
-  if (a === 127) {return true;}
+  if (a === 127) {
+    return true;
+  }
 
   // 169.254.0.0/16 (link-local)
-  if (a === 169 && b === 254) {return true;}
+  if (a === 169 && b === 254) {
+    return true;
+  }
 
   // 0.0.0.0/8 (this network)
-  if (a === 0) {return true;}
+  if (a === 0) {
+    return true;
+  }
 
   // 224.0.0.0/4 (multicast)
-  if (a >= 224 && a <= 239) {return true;}
+  if (a >= 224 && a <= 239) {
+    return true;
+  }
 
   // 240.0.0.0/4 (reserved)
-  if (a >= 240 && a <= 255) {return true;}
+  if (a >= 240 && a <= 255) {
+    return true;
+  }
 
   return false;
 }
@@ -85,17 +119,25 @@ function isPrivateIP(ip: string): boolean {
 /**
  * Checks if an IPv6 address is in a private/internal range
  */
-function isPrivateIPv6(ip: string): boolean {
-  if (!isValidIPv6(ip)) {return false;}
+export function isPrivateIPv6(ip: string): boolean {
+  if (!isValidIPv6(ip)) {
+    return false;
+  }
 
   // ::1 (loopback)
-  if (ip === "::1" || ip.toLowerCase() === "::1") {return true;}
+  if (ip === "::1" || ip.toLowerCase() === "::1") {
+    return true;
+  }
 
   // fc00::/7 (unique local)
-  if (/^[fF][cCdD][0-9a-fA-F]/.test(ip)) {return true;}
+  if (/^[fF][cCdD][0-9a-fA-F]/.test(ip)) {
+    return true;
+  }
 
   // fe80::/10 (link-local)
-  if (/^[fF][eE][89aAbB][0-9a-fA-F]/.test(ip)) {return true;}
+  if (/^[fF][eE][89aAbB][0-9a-fA-F]/.test(ip)) {
+    return true;
+  }
 
   // ::ffff:0:0/96 (IPv4-mapped)
   if (ip.startsWith("::ffff:")) {
@@ -181,4 +223,34 @@ export function validateIPAllowPrivate(ip: string): string {
   }
 
   throw new Error("Invalid IP address format");
+}
+
+/**
+ * Checks if an IP address is localhost or in a private/internal range
+ * @param ip - IP address to check
+ * @returns True if the IP is localhost or private
+ */
+export function isLocalhostOrPrivateIP(ip: string): boolean {
+  if (!ip || typeof ip !== "string") {
+    return false;
+  }
+
+  const trimmed = ip.trim().toLowerCase();
+
+  // Check for localhost hostname
+  if (trimmed === "localhost" || trimmed === "localhost.") {
+    return true;
+  }
+
+  // Check IPv4
+  if (trimmed.includes(".")) {
+    return isPrivateIP(trimmed);
+  }
+
+  // Check IPv6
+  if (trimmed.includes(":")) {
+    return isPrivateIPv6(trimmed);
+  }
+
+  return false;
 }
