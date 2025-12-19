@@ -4,8 +4,9 @@
  * @module adapters/nestjs/route-protection-logger
  */
 
-import { Injectable, type OnApplicationBootstrap } from "@nestjs/common";
-import { Reflector, HttpAdapterHost } from "@nestjs/core";
+import { Injectable, type OnApplicationBootstrap, RequestMethod } from "@nestjs/common";
+import { PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
+import { Reflector, DiscoveryService, MetadataScanner } from "@nestjs/core";
 import type { GuardrailModuleOptions } from "./guardrail.module";
 import {
   getRouteProtectionInfo,
@@ -28,7 +29,8 @@ export class RouteProtectionLogger implements OnApplicationBootstrap {
   constructor(
     private readonly reflector: Reflector,
     private readonly options: GuardrailModuleOptions,
-    private readonly httpAdapterHost: HttpAdapterHost
+    private readonly discoveryService: DiscoveryService,
+    private readonly metadataScanner: MetadataScanner
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -37,20 +39,23 @@ export class RouteProtectionLogger implements OnApplicationBootstrap {
       return;
     }
 
-    // Wait a bit for all routes to be fully registered
-    // OnApplicationBootstrap runs after modules are initialized but routes
-    // might still be registering, so we add a small delay
-    setTimeout(() => {
-      if (!RouteProtectionLogger.logged) {
-        RouteProtectionLogger.logged = true;
-        this.logRoutes();
-      }
-    }, 100);
+    // DiscoveryService is available immediately during OnApplicationBootstrap
+    // No retry logic needed - controllers are already registered at this point
+    RouteProtectionLogger.logged = true;
+    this.logRoutes();
   }
 
   private logRoutes(): void {
     try {
       const routes = this.scanAllRoutes();
+
+      if (this.options.debug && routes.length === 0) {
+        console.warn(
+          "[Guardrail] No routes found for protection logging. This might be normal if routes are registered after bootstrap."
+        );
+        return;
+      }
+
       logRouteProtection(routes, { debug: this.options.debug });
     } catch (error) {
       if (this.options.debug) {
@@ -63,61 +68,49 @@ export class RouteProtectionLogger implements OnApplicationBootstrap {
     const routes: RouteProtectionInfo[] = [];
 
     try {
-      const httpAdapter = this.httpAdapterHost.httpAdapter;
-      if (!httpAdapter) {
-        return routes;
-      }
+      const controllers = this.discoveryService.getControllers();
 
-      const router = httpAdapter.getInstance();
-      const routerStack = router._router?.stack || [];
+      controllers.forEach((wrapper) => {
+        const { instance } = wrapper;
+        if (!instance) return;
 
-      for (const layer of routerStack) {
-        if (layer.route) {
-          const route = layer.route;
-          const methods = Object.keys(route.methods).filter((m) => m !== "_all");
+        const controllerClass = instance.constructor;
+        const controllerPath = this.reflector.get<string>(PATH_METADATA, controllerClass) || "";
 
-          for (const method of methods) {
-            const path = route.path;
-            const handler = layer.handle;
+        // Scan all methods in the controller
+        this.metadataScanner.scanFromPrototype(
+          instance,
+          Object.getPrototypeOf(instance),
+          (methodName) => {
+            const methodHandler = instance[methodName];
+            if (typeof methodHandler !== "function") return;
 
-            // Get protection info
-            let protectionInfo;
-            try {
-              if (handler && typeof handler === "function") {
-                // Try to get metadata from the handler
-                protectionInfo = getRouteProtectionInfo(
-                  handler.constructor || handler,
-                  handler,
-                  this.reflector,
-                  this.options
-                );
-              } else {
-                protectionInfo = {
-                  isProtected: false,
-                  isSkipped: false,
-                  rules: [],
-                  ruleDetails: [],
-                };
-              }
-            } catch {
-              protectionInfo = {
-                isProtected: false,
-                isSkipped: false,
-                rules: [],
-                ruleDetails: [],
-              };
+            const methodPath = this.reflector.get<string>(PATH_METADATA, methodHandler);
+            const requestMethod = this.reflector.get<RequestMethod>(METHOD_METADATA, methodHandler);
+
+            if (methodPath !== undefined && requestMethod !== undefined) {
+              // Build full path
+              const fullPath = this.buildRoutePath(controllerPath, methodPath);
+
+              // Get protection info using controller class and method handler
+              const protectionInfo = getRouteProtectionInfo(
+                controllerClass,
+                methodHandler,
+                this.reflector,
+                this.options
+              );
+
+              routes.push({
+                method: RequestMethod[requestMethod],
+                path: fullPath,
+                controller: controllerClass.name,
+                handler: methodName,
+                ...protectionInfo,
+              });
             }
-
-            routes.push({
-              method: method.toUpperCase(),
-              path,
-              controller: handler?.constructor?.name || handler?.name || "Unknown",
-              handler: handler?.name || "unknown",
-              ...protectionInfo,
-            });
           }
-        }
-      }
+        );
+      });
     } catch (error) {
       if (this.options.debug) {
         console.warn("[Guardrail] Route scanning error:", error);
@@ -125,5 +118,16 @@ export class RouteProtectionLogger implements OnApplicationBootstrap {
     }
 
     return routes;
+  }
+
+  private buildRoutePath(controllerPath: string, methodPath: string): string {
+    const parts = [controllerPath, methodPath].filter(Boolean);
+    return (
+      "/" +
+      parts
+        .join("/")
+        .replace(/^\/+|\/+$/g, "")
+        .replace(/\/+/g, "/")
+    );
   }
 }
